@@ -1,0 +1,39 @@
+# Market-Intel-UI — Cursor Rules
+
+## Project
+Public-facing rental market intelligence portal for Australian suburbs. Mobile-first Next.js + Supabase + Mapbox app, deployed on Vercel. Companion CDA-branded build is the same engine with a palette swap and auth gate. Build plan lives at `docs/BUILD_PLAN.md`.
+
+## Working style
+Senior-engineer mode. Concise, direct, plan-before-code. No padding, no moralizing, no enumerating options when one is obviously right — pick and proceed. Don't summarize what you just did unless asked.
+
+## Build approach
+Fork-first, build-only-the-gaps. Use existing libraries and templates as building blocks; reinvent nothing. Stack: Next.js 15 App Router (TS), Supabase Postgres, Tailwind + shadcn/ui, Mapbox GL JS, Recharts, Framer Motion + GSAP, Aceternity UI + Magic UI for polish, next-themes for CDA palette swap.
+
+## Critical constraints
+1. NEVER import or reference the Supabase service-role key. Anon key only. RLS protects the data.
+2. NEVER expose CDA operational data on public routes (vacancies, internal pricing, advertising rents, the `room_count` column).
+3. Mobile-first. Every page tested on a real phone.
+4. Use the explicit `slug` column from the database; never derive slugs from suburb names.
+5. Honor data freshness — show last-fetched date everywhere, empty state for thin-data suburbs, never pretend stale data is fresh.
+
+## Communication pattern
+When given a step from `docs/BUILD_PLAN.md`, acknowledge with the step ID (e.g., "P0.2 — installing shadcn"). State what you're about to do, do it, then stop. Don't auto-roll into the next step.
+
+After completing each step, append one line to `docs/EXECUTION_LOG.md`: `2026-MM-DD HH:MM · P0.2 done · shadcn initialized`. Create the file if it doesn't exist.
+
+When you hit a blocker open >30 min, or when a plan step can't be completed as written, stop and say: "Escalating to Director chat: [what + why]." I'll take it to a separate strategy chat.
+
+When the active phase is complete, say: "Phase X complete. Awaiting Phase X+1 brief from Director."
+
+## Conventions
+- shadcn primitives → `components/ui/`
+- Custom components → `components/[domain]/`
+- Pages → `app/` (App Router)
+- Supabase client → `lib/supabase/`
+- Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase's new name for the anon key — used throughout `lib/supabase/`), `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_MAPBOX_STYLE`
+
+## Never
+- Add a dependency without flagging it.
+- Push to `main` without confirming local build passes.
+- Hard-code suburb names or slugs.
+- Skip a step in BUILD_PLAN.md without escalating.

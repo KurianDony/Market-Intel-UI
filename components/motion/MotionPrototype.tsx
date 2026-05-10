@@ -1,0 +1,329 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  MapboxScene,
+  MapboxSceneHandle,
+  Area,
+  Suburb,
+  AREA_COLOR_BY_NAME,
+  EXCLUDED_AREA_NAMES,
+} from "./MapboxScene";
+
+type StateKey = "NSW" | "QLD" | "TAS";
+type Level = "state" | "area" | "suburb";
+
+// Hardcoded representatives for QLD and TAS — single-suburb showcase
+const QLD_SHOWCASE: Suburb = {
+  name: "Cranbrook", slug: "cranbrook-4814", postcode: "4814", area: "Queensland", state: "QLD",
+};
+const TAS_SHOWCASE: Suburb = {
+  name: "Launceston", slug: "launceston-7250", postcode: "7250", area: "Tasmania", state: "TAS",
+};
+
+export function MotionPrototype() {
+  const [stateKey, setStateKey] = useState<StateKey>("NSW");
+  const [level, setLevel] = useState<Level>("state");
+  const [activeArea, setActiveArea] = useState<Area | null>(null);
+  const [activeSuburb, setActiveSuburb] = useState<Suburb | null>(null);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [legendOpen, setLegendOpen] = useState(true);
+
+  const mapRef = useRef<MapboxSceneHandle>(null);
+
+  // Load NSW area list for legend
+  useEffect(() => {
+    fetch("/areas_smooth.geojson")
+      .then(r => r.json())
+      .then((data: GeoJSON.FeatureCollection) => {
+        const sortedNames = data.features
+          .map(f => (f.properties as { name: string }).name)
+          .filter(n => !EXCLUDED_AREA_NAMES.includes(n))
+          .sort();
+        setAreas(sortedNames.map(name => {
+          const f = data.features.find(ft => (ft.properties as { name: string }).name === name)!;
+          return f.properties as Area;
+        }));
+      })
+      .catch(err => console.error("[MotionPrototype] failed to load areas:", err));
+  }, []);
+
+  // v14.1 — read from canonical AREA_COLOR_BY_NAME so legend dots match map paint
+  // exactly (previously indexed by alphabetical position which drifted from the
+  // explicit name → colour mapping after the North/South/West palette shift).
+  const colorFor = useCallback((areaName: string) => {
+    return AREA_COLOR_BY_NAME[areaName] ?? "#7a8aae";
+  }, []);
+
+  // ── Map → React click handlers ──────────────────────────────────────────
+
+  const handleAreaClick = useCallback((area: Area) => {
+    setLevel("area");
+    setActiveArea(area);
+    setActiveSuburb(null);
+    mapRef.current?.drillToArea(area);
+  }, []);
+
+  const handleSuburbClick = useCallback((suburb: Suburb) => {
+    setLevel("suburb");
+    setActiveSuburb(suburb);
+    if (!activeArea || activeArea.name !== suburb.area) {
+      setActiveArea({ name: suburb.area, slug: slugify(suburb.area) });
+    }
+    mapRef.current?.focusSuburb(suburb);
+  }, [activeArea]);
+
+  // ── React → Map navigation ──────────────────────────────────────────────
+
+  const goToNswState = () => {
+    setStateKey("NSW");
+    setLevel("state");
+    setActiveArea(null);
+    setActiveSuburb(null);
+    mapRef.current?.goToNswState();
+  };
+
+  const goToArea = (area: Area) => {
+    setLevel("area");
+    setActiveArea(area);
+    setActiveSuburb(null);
+    if (level === "state") mapRef.current?.drillToArea(area);
+    else mapRef.current?.upToArea(area);
+  };
+
+  const goBack = () => {
+    if (stateKey !== "NSW") return; // QLD/TAS have no back
+    if (level === "suburb" && activeArea) goToArea(activeArea);
+    else if (level === "area") goToNswState();
+  };
+
+  const switchToState = (next: StateKey) => {
+    if (next === stateKey) return;
+    setStateKey(next);
+    if (next === "NSW") {
+      setLevel("state");
+      setActiveArea(null);
+      setActiveSuburb(null);
+      mapRef.current?.goToNswState();
+    } else {
+      const showcase = next === "QLD" ? QLD_SHOWCASE : TAS_SHOWCASE;
+      setLevel("suburb");
+      setActiveArea({ name: showcase.area, slug: slugify(showcase.area) });
+      setActiveSuburb(showcase);
+      mapRef.current?.showSingleStateSuburb(showcase);
+    }
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────
+
+  const showBack = stateKey === "NSW" && level !== "state";
+
+  return (
+    <div className="relative w-full h-dvh overflow-hidden bg-[#05050a] text-[#e0e6f5]">
+      <MapboxScene
+        ref={mapRef}
+        onAreaClick={handleAreaClick}
+        onSuburbClick={handleSuburbClick}
+      />
+
+      {/* Top-left: State toggle + (optionally) Back button */}
+      <div className="absolute top-4 left-4 z-10 flex flex-col gap-2.5">
+        <StateToggle current={stateKey} onChange={switchToState} />
+        {showBack && (
+          <button
+            onClick={goBack}
+            className="self-start text-[#e0e6f5] text-xs font-bold tracking-[0.18em] uppercase px-4 py-2 rounded-md bg-[rgba(10,10,18,0.96)] border border-[#1a1a3a] hover:border-[#00e5ff] hover:text-[#00e5ff] hover:shadow-[0_0_12px_rgba(0,229,255,0.35)] transition-all"
+          >
+            ← Back
+          </button>
+        )}
+      </div>
+
+      {/* Top-centre: Focus badge (suburb level only) */}
+      {level === "suburb" && activeSuburb && (
+        <div
+          className="absolute top-5 left-1/2 -translate-x-1/2 z-10 px-5 py-2 rounded-full text-black text-sm font-bold tracking-[0.15em] uppercase flex items-center gap-2 whitespace-nowrap"
+          style={{
+            background: "linear-gradient(135deg, #00e5ff 0%, #5b6cff 100%)",
+            boxShadow: "0 0 20px rgba(0,229,255,0.55), 0 0 40px rgba(91,108,255,0.35)",
+          }}
+        >
+          <span className="text-base leading-none">◆</span>
+          <span>Focus: {activeSuburb.name}</span>
+          <span className="opacity-60 font-medium">{activeSuburb.postcode}</span>
+        </div>
+      )}
+
+      {/* Right side panel: NSW area legend */}
+      {stateKey === "NSW" && (
+        <div
+          className={`absolute top-4 right-4 z-10 rounded-xl text-[#e0e6f5] transition-[width] duration-200 ${
+            legendOpen ? "w-60" : "w-auto"
+          }`}
+          style={{
+            background: "rgba(10,10,18,0.96)",
+            border: "1px solid #1a1a3a",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          <button
+            className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-bold tracking-[0.2em] uppercase hover:text-[#00e5ff]"
+            style={{ color: "#00e5ff", textShadow: "0 0 8px rgba(0,229,255,0.4)" }}
+            onClick={() => setLegendOpen(o => !o)}
+          >
+            <span>Areas</span>
+            <span className="opacity-50">{legendOpen ? "−" : "+"}</span>
+          </button>
+          {legendOpen && (
+            <>
+              <div className="px-4 pb-2 text-[11px] text-[#7a8aae] tracking-wide">
+                Click any area to drill in
+              </div>
+              <div className="max-h-[58vh] overflow-y-auto px-1.5 pb-2">
+                {areas.map((area) => {
+                  const isActive = activeArea?.name === area.name;
+                  return (
+                    <button
+                      key={area.slug}
+                      onClick={() => goToArea(area)}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-md text-sm flex items-center gap-2.5 transition-all ${
+                        isActive
+                          ? "bg-[rgba(0,229,255,0.12)] text-white"
+                          : "text-[#a4afc8] hover:bg-[rgba(0,229,255,0.06)] hover:text-white"
+                      }`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                        style={{
+                          backgroundColor: colorFor(area.name),
+                          boxShadow: `0 0 6px ${colorFor(area.name)}`,
+                        }}
+                      />
+                      <span className="truncate">{area.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Bottom-centre: breadcrumb */}
+      <div
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 rounded-full px-2 py-1 flex items-center gap-1"
+        style={{
+          background: "rgba(10,10,18,0.96)",
+          border: "1px solid #1a1a3a",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <Crumb
+          label={stateKey}
+          active={stateKey === "NSW" ? level === "state" : true}
+          onClick={() => stateKey === "NSW" ? goToNswState() : null}
+        />
+        {stateKey === "NSW" && activeArea && (
+          <>
+            <Sep />
+            <Crumb
+              label={activeArea.name}
+              active={level === "area"}
+              onClick={() => goToArea(activeArea)}
+              dotColor={colorFor(activeArea.name)}
+            />
+          </>
+        )}
+        {activeSuburb && (
+          <>
+            <Sep />
+            <Crumb
+              label={activeSuburb.name}
+              active={level === "suburb"}
+              onClick={() => activeSuburb && mapRef.current?.focusSuburb(activeSuburb)}
+              dotColor={colorFor(activeSuburb.area)}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── State toggle ─────────────────────────────────────────────────────────────
+
+function StateToggle({ current, onChange }: { current: StateKey; onChange: (k: StateKey) => void }) {
+  const states: { key: StateKey; label: string }[] = [
+    { key: "NSW", label: "New South Wales" },
+    { key: "QLD", label: "QLD" },
+    { key: "TAS", label: "TAS" },
+  ];
+  return (
+    <div
+      className="inline-flex p-1 rounded-full gap-1"
+      style={{
+        background: "rgba(10,10,18,0.96)",
+        border: "1px solid #1a1a3a",
+        backdropFilter: "blur(12px)",
+      }}
+    >
+      {states.map(({ key, label }) => {
+        const active = key === current;
+        return (
+          <button
+            key={key}
+            onClick={() => onChange(key)}
+            className="px-3.5 py-1.5 rounded-full text-xs font-bold tracking-[0.15em] uppercase transition-all"
+            style={
+              active
+                ? {
+                    background: "linear-gradient(135deg, #00e5ff 0%, #5b6cff 100%)",
+                    color: "#000",
+                    boxShadow: "0 0 14px rgba(0,229,255,0.55)",
+                  }
+                : { color: "#7a8aae", background: "transparent" }
+            }
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Breadcrumb pieces ────────────────────────────────────────────────────────
+
+function Crumb({
+  label, active, onClick, dotColor,
+}: {
+  label: string; active: boolean; onClick: () => void; dotColor?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-xs font-bold tracking-[0.15em] uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all"
+      style={
+        active
+          ? { color: "#fff", background: "rgba(0,229,255,0.12)" }
+          : { color: "#7a8aae", background: "transparent" }
+      }
+    >
+      {dotColor && (
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: dotColor, boxShadow: `0 0 4px ${dotColor}` }}
+        />
+      )}
+      {label}
+    </button>
+  );
+}
+
+function Sep() {
+  return <span className="text-[#3a3a5a] text-xs">›</span>;
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}

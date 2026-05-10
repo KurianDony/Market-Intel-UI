@@ -1,3 +1,5 @@
+@import "mapbox-gl/dist/mapbox-gl.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -65,4 +67,31 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Cyberpunk Mapbox tooltip — used by area hover */
+.cyber-tooltip .mapboxgl-popup-content {
+  background: #0a0a14;
+  color: #e0e6f5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #00e5ff;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.4), 0 0 32px rgba(91, 108, 255, 0.2);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  min-width: 0;
+}
+.cyber-tooltip .mapboxgl-popup-tip { display: none; }
+.cyber-tooltip .cyber-tt-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cyber-tooltip .cyber-tt-meta {
+  font-size: 11px;
+  color: #7a8aae;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
 }
