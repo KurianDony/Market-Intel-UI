@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback } from "react";
 import { MapboxScene, MapboxSceneHandle, Area, Suburb } from "./MapboxScene";
 import { AREA_COLOR_BY_NAME } from "./areaPalette";
+import { SuburbSearch } from "./SuburbSearch";
 
 type StateKey = "NSW" | "QLD" | "TAS";
 type Level = "state" | "area" | "suburb";
@@ -97,6 +98,13 @@ export function MotionPrototype() {
         onAreaClick={handleAreaClick}
         onSuburbClick={handleSuburbClick}
       />
+
+      {/* Top-centre: suburb search (above map chrome) */}
+      <div className="pointer-events-none absolute top-[12px] left-1/2 z-[1100] w-full max-w-[400px] -translate-x-1/2 px-3">
+        <div className="pointer-events-auto mx-auto w-full max-w-[400px] flex justify-center">
+          <SuburbSearch onSelectSuburb={handleSuburbClick} />
+        </div>
+      </div>
 
       {/* Top-left: State toggle + (optionally) Back button */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-2.5">
