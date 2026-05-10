@@ -6,7 +6,8 @@ import { AREA_COLOR_BY_NAME } from "./areaPalette";
 import type { Suburb } from "./MapboxScene";
 
 type Props = {
-  onSelectSuburb: (suburb: Suburb) => void;
+  /** Full prototype navigation (state → area → suburb), not plain focus. */
+  onNavigateToSuburb: (suburb: Suburb) => void;
 };
 
 function propsToSuburb(p: Suburb): Suburb {
@@ -19,7 +20,7 @@ function propsToSuburb(p: Suburb): Suburb {
   };
 }
 
-export function SuburbSearch({ onSelectSuburb }: Props) {
+export function SuburbSearch({ onNavigateToSuburb }: Props) {
   const [features, setFeatures] = useState<GeoJSON.Feature[]>([]);
   const [query, setQuery] = useState("");
   const [gooeyResetKey, setGooeyResetKey] = useState(0);
@@ -56,10 +57,10 @@ export function SuburbSearch({ onSelectSuburb }: Props) {
     (f: GeoJSON.Feature) => {
       const p = f.properties as Suburb;
       if (!p?.slug) return;
-      onSelectSuburb(propsToSuburb(p));
+      onNavigateToSuburb(propsToSuburb(p));
       closeAndClear();
     },
-    [onSelectSuburb, closeAndClear],
+    [onNavigateToSuburb, closeAndClear],
   );
 
   useEffect(() => {

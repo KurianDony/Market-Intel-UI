@@ -46,6 +46,63 @@ export function MotionPrototype() {
     mapRef.current?.focusSuburb(suburb);
   }, [activeArea]);
 
+  /** Search pick: full UI + map sequence (state → area → suburb), aligned with manual navigation. */
+  const navigateSuburbFromSearch = useCallback(
+    (suburb: Suburb) => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      const flyPadMs = 1480;
+
+      const after = (ms: number, fn: () => void) => {
+        window.setTimeout(fn, ms);
+      };
+
+      if (suburb.state === "QLD" || suburb.state === "TAS") {
+        const key: StateKey = suburb.state === "QLD" ? "QLD" : "TAS";
+        setStateKey(key);
+        setLevel("suburb");
+        setActiveArea({ name: suburb.area, slug: slugify(suburb.area) });
+        setActiveSuburb(suburb);
+        map.showSingleStateSuburb(suburb);
+        return;
+      }
+
+      const area: Area = { name: suburb.area, slug: slugify(suburb.area) };
+
+      if (stateKey !== "NSW") {
+        setStateKey("NSW");
+        setLevel("state");
+        setActiveArea(null);
+        setActiveSuburb(null);
+        map.goToNswState();
+        after(flyPadMs, () => {
+          setLevel("area");
+          setActiveArea(area);
+          setActiveSuburb(null);
+          map.drillToArea(area);
+          after(flyPadMs, () => {
+            setLevel("suburb");
+            setActiveSuburb(suburb);
+            map.focusSuburb(suburb);
+          });
+        });
+        return;
+      }
+
+      setLevel("area");
+      setActiveArea(area);
+      setActiveSuburb(null);
+      map.drillToArea(area);
+      after(flyPadMs, () => {
+        setLevel("suburb");
+        setActiveSuburb(suburb);
+        map.focusSuburb(suburb);
+      });
+    },
+    [stateKey],
+  );
+
   // ── React → Map navigation ──────────────────────────────────────────────
 
   const goToNswState = () => {
@@ -102,7 +159,7 @@ export function MotionPrototype() {
       {/* Top-right: suburb search */}
       <div className="pointer-events-none absolute top-[12px] right-[12px] z-[1100] w-[min(280px,calc(100vw-48px))]">
         <div className="pointer-events-auto ml-auto w-full max-w-[280px]">
-          <SuburbSearch onSelectSuburb={handleSuburbClick} />
+          <SuburbSearch onNavigateToSuburb={navigateSuburbFromSearch} />
         </div>
       </div>
 
