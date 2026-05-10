@@ -216,8 +216,8 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             filter: NSW_FILTER,
             paint: {
               "line-color": tileColorExpr,
-              "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 3, 2],
-              "line-opacity": 0.7,
+              "line-width": 3,
+              "line-opacity": 1.0,
             },
           });
           // Dashed outline shown only when drilled into a single area.
