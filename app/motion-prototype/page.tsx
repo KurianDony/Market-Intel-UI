@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { IntroSplash } from "@/components/motion/IntroSplash";
 import { MotionPrototype } from "@/components/motion/MotionPrototype";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function MotionPrototypePage() {
   return (
     <Suspense fallback={null}>
+      <IntroSplash />
       <MotionPrototype />
     </Suspense>
   );

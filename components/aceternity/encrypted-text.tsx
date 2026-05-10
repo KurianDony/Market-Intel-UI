@@ -3,25 +3,33 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "motion/react";
 import { cn } from "@/lib/utils";
 
+const BASE_DELAY_MS = 50;
+
+/** Defaults are ~25% slower than legacy 50 ms pacing (`50 × 1.25`). */
+export const ENCRYPTED_TEXT_DEFAULT_REVEAL_MS = Math.round(BASE_DELAY_MS * 1.25);
+export const ENCRYPTED_TEXT_DEFAULT_FLIP_MS = Math.round(BASE_DELAY_MS * 1.25);
+
 type EncryptedTextProps = {
   text: string;
   className?: string;
   /**
    * Time in milliseconds between revealing each subsequent real character.
-   * Lower is faster. Defaults to 50ms per character.
+   * Lower is faster. Defaults to ~62 ms (~25% slower than original 50 ms).
    */
   revealDelayMs?: number;
   /** Optional custom character set to use for the gibberish effect. */
   charset?: string;
   /**
    * Time in milliseconds between gibberish flips for unrevealed characters.
-   * Lower is more jittery. Defaults to 50ms.
+   * Lower is more jittery. Defaults to ~62 ms (~25% slower than original 50 ms).
    */
   flipDelayMs?: number;
   /** CSS class for styling the encrypted/scrambled characters */
   encryptedClassName?: string;
   /** CSS class for styling the revealed characters */
   revealedClassName?: string;
+  /** Runs once after the full string has decrypted (characters revealed). */
+  onRevealComplete?: () => void;
 };
 
 const DEFAULT_CHARSET =
@@ -48,16 +56,21 @@ function generateGibberishPreservingSpaces(
 export const EncryptedText: React.FC<EncryptedTextProps> = ({
   text,
   className,
-  revealDelayMs = 50,
+  revealDelayMs = ENCRYPTED_TEXT_DEFAULT_REVEAL_MS,
   charset = DEFAULT_CHARSET,
-  flipDelayMs = 50,
+  flipDelayMs = ENCRYPTED_TEXT_DEFAULT_FLIP_MS,
   encryptedClassName,
   revealedClassName,
+  onRevealComplete,
 }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
 
   const [revealCount, setRevealCount] = useState<number>(0);
+  const revealCompleteEmittedRef = useRef(false);
+  const onRevealCompleteRef = useRef(onRevealComplete);
+  onRevealCompleteRef.current = onRevealComplete;
+
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const lastFlipTimeRef = useRef<number>(0);
@@ -67,6 +80,8 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
 
   useEffect(() => {
     if (!isInView) return;
+
+    revealCompleteEmittedRef.current = false;
 
     const initial = text
       ? generateGibberishPreservingSpaces(text, charset)
@@ -121,6 +136,15 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
       }
     };
   }, [isInView, text, revealDelayMs, charset, flipDelayMs]);
+
+  useEffect(() => {
+    if (!isInView || !text || revealCount < text.length) return;
+    if (revealCompleteEmittedRef.current) return;
+    revealCompleteEmittedRef.current = true;
+    queueMicrotask(() => {
+      onRevealCompleteRef.current?.();
+    });
+  }, [isInView, text, revealCount]);
 
   if (!text) return null;
 
