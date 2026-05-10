@@ -1,7 +1,7 @@
 "use client"
 
 import { FC, useEffect, useRef, useState } from "react"
-import { motion, useSpring } from "framer-motion"
+import { motion, useMotionValue, useSpring } from "framer-motion"
 
 interface Position {
   x: number
@@ -89,9 +89,9 @@ const DefaultCursorSVG: FC = () => {
 export function SmoothCursor({
   cursor = <DefaultCursorSVG />,
   springConfig = {
-    damping: 45,
-    stiffness: 400,
-    mass: 1,
+    stiffness: 2000,
+    damping: 50,
+    mass: 0.1,
     restDelta: 0.001,
   },
 }: SmoothCursorProps) {
@@ -103,18 +103,10 @@ export function SmoothCursor({
   const [isEnabled, setIsEnabled] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
 
-  const cursorX = useSpring(0, springConfig)
-  const cursorY = useSpring(0, springConfig)
-  const rotation = useSpring(0, {
-    ...springConfig,
-    damping: 60,
-    stiffness: 300,
-  })
-  const scale = useSpring(1, {
-    ...springConfig,
-    stiffness: 500,
-    damping: 35,
-  })
+  const cursorX = useMotionValue(0)
+  const cursorY = useMotionValue(0)
+  const rotation = useSpring(0, springConfig)
+  const scale = useSpring(1, springConfig)
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(DESKTOP_POINTER_QUERY)
@@ -218,14 +210,12 @@ export function SmoothCursor({
       })
     }
 
-    document.body.style.cursor = "none"
     window.addEventListener("pointermove", throttledPointerMove, {
       passive: true,
     })
 
     return () => {
       window.removeEventListener("pointermove", throttledPointerMove)
-      document.body.style.cursor = "auto"
       if (rafId) cancelAnimationFrame(rafId)
       if (timeout !== null) {
         clearTimeout(timeout)
