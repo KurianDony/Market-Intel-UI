@@ -224,10 +224,13 @@ fix has resolved one symptom and exposed another.
 Branch: **`motion-prototype-stable-baseline`**
 
 Commit on `main` snapshotting the broken-cyberpunk WIP state:
-- `<see EXECUTION_LOG.md or git log on this branch>`
+- `3a7d806` — "WIP: Phase 0 + Phase 1 motion prototype (cyberpunk styling iterations broken)"
 
-Rollback commit on the baseline branch:
-- `<see git log on motion-prototype-stable-baseline>`
+Rollback commit on the `motion-prototype-stable-baseline` branch:
+- `257729c` — "rollback: state-level rendering to known-good baseline before cyberpunk styling iterations"
+
+To inspect the v14.1 broken-cyberpunk state: `git checkout main`
+To inspect / continue from the baseline:    `git checkout motion-prototype-stable-baseline`
 
 What the baseline branch's `MapboxScene.tsx` does:
 - Map init + `setProjection("mercator")` workaround (kept).
