@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  MapboxScene,
-  MapboxSceneHandle,
-  Area,
-  Suburb,
-  AREA_COLOR_BY_NAME,
-} from "./MapboxScene";
+import { MapboxScene, MapboxSceneHandle, Area, Suburb } from "./MapboxScene";
+import { AREA_COLOR_BY_NAME } from "./areaPalette";
 
 type StateKey = "NSW" | "QLD" | "TAS";
 type Level = "state" | "area" | "suburb";
@@ -46,9 +41,7 @@ export function MotionPrototype() {
       .catch(err => console.error("[MotionPrototype] failed to load areas:", err));
   }, []);
 
-  // v14.1 — read from canonical AREA_COLOR_BY_NAME so legend dots match map paint
-  // exactly (previously indexed by alphabetical position which drifted from the
-  // explicit name → colour mapping after the North/South/West palette shift).
+  // Legend + map: same `AREA_COLOR_BY_NAME` from `areaPalette.ts`
   const colorFor = useCallback((areaName: string) => {
     return AREA_COLOR_BY_NAME[areaName] ?? "#7a8aae";
   }, []);

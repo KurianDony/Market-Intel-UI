@@ -2,41 +2,12 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
+import { AREA_COLOR_BY_NAME } from "./areaPalette";
 
 // ── Stable baseline ──────────────────────────────────────────────────────────
-// State-level rendering rolled back to "plain semi-transparent outlines +
-// basemap visible". Drill-down logic (area / suburb / QLD / TAS) is fully
-// preserved. The cyberpunk styling iterations (dim overlay, glow halos, NSW
-// silhouette, hover banner, opaque tile plates) have been stripped so the
-// next chat can rebuild them cleanly from scratch.
+// Area colours: `components/motion/areaPalette.ts` — single source of truth.
 //
-// See docs/MOTION_PROTOTYPE_HANDOFF.md for the full session history.
-
-// Palette used by both the map paint expressions and the legend in
-// MotionPrototype. Lock-step with AREA_COLOR_BY_NAME below.
-export const CYBERPUNK_PALETTE = [
-  "#00fff5", "#00b8d4", "#4dd0e1", "#2196f3", "#7c4dff",
-  "#b388ff", "#d500f9", "#ff1493", "#ff5722",
-];
-
-// Explicit name → colour mapping. Exported so the legend in MotionPrototype
-// reads from the same source of truth as the map paint.
-export const AREA_COLOR_BY_NAME: Record<string, string> = {
-  City: "#00fff5",
-  "Eastern Suburbs": "#00b8d4",
-  "Inner Inner West": "#4dd0e1",
-  "Inner North": "#2196f3",
-  "Inner South": "#7c4dff",
-  "Inner West": "#b388ff",
-  North: "#d500f9",
-  South: "#ff1493",
-  West: "#ff5722",
-  Newcastle: "#ffab00",
-  Wollongong: "#ffd600",
-  "North North": "#76ff03",
-  Queensland: "#00e676",
-  Tasmania: "#18ffff",
-};
+// See docs/MOTION_PROTOTYPE_HANDOFF.md for rendering session history.
 
 // ── Frames ───────────────────────────────────────────────────────────────────
 
