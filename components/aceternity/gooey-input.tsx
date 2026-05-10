@@ -57,6 +57,28 @@ function SearchIcon({ layoutId }: { layoutId: string }) {
   );
 }
 
+/** Non-animated glyph for leading icon inside expanded pill (no detached bubble). */
+function SearchGlyphStatic({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      width={16}
+      height={16}
+      className={cn("shrink-0", className)}
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
 const transition = {
   duration: 0.4,
   type: "spring" as const,
@@ -95,6 +117,8 @@ export interface GooeyInputProps {
   onValueChange?: (value: string) => void;
   onOpenChange?: (open: boolean) => void;
   onInputKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  /** When true, hides the detached bubble and draws the search icon inside the pill (left, over input padding). */
+  inlineLeadingIcon?: boolean;
   disabled?: boolean;
 }
 
@@ -111,6 +135,7 @@ export function GooeyInput({
   onValueChange,
   onOpenChange,
   onInputKeyDown,
+  inlineLeadingIcon = false,
   disabled = false,
 }: GooeyInputProps) {
   const reactId = useId();
@@ -157,9 +182,12 @@ export function GooeyInput({
   const buttonVariants = useMemo(
     () => ({
       collapsed: { width: collapsedWidth, marginLeft: 0 },
-      expanded: { width: expandedWidth, marginLeft: expandedOffset },
+      expanded: {
+        width: expandedWidth,
+        marginLeft: inlineLeadingIcon ? 0 : expandedOffset,
+      },
     }),
-    [collapsedWidth, expandedWidth, expandedOffset],
+    [collapsedWidth, expandedWidth, expandedOffset, inlineLeadingIcon],
   );
 
   const handleExpand = useCallback(() => {
@@ -210,12 +238,21 @@ export function GooeyInput({
             onClick={handleExpand}
             className={cn(
               "flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium outline-none transition-[color,box-shadow] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+              isExpanded && inlineLeadingIcon && "relative",
               surfaceClass,
               classNames?.trigger,
             )}
           >
             {!isExpanded ? (
               <SearchIcon layoutId={iconLayoutId} />
+            ) : null}
+            {isExpanded && inlineLeadingIcon ? (
+              <span
+                className="pointer-events-none absolute left-[14px] top-1/2 z-[2] -translate-y-1/2 text-[#7a8aae]"
+                aria-hidden
+              >
+                <SearchGlyphStatic />
+              </span>
             ) : null}
             <motion.input
               layoutId={inputLayoutId}
@@ -231,6 +268,7 @@ export function GooeyInput({
               placeholder={placeholder}
               className={cn(
                 "h-full min-h-0 min-w-0 flex-1 bg-transparent py-0 text-sm leading-[2.5rem] text-background outline-none",
+                isExpanded && inlineLeadingIcon && "pl-10",
                 isExpanded
                   ? "placeholder:text-background/50 dark:placeholder:text-background/45"
                   : "pointer-events-none placeholder:text-background/80 dark:placeholder:text-background/70",
@@ -240,26 +278,28 @@ export function GooeyInput({
           </button>
         </motion.div>
 
-        <motion.div
-          className={cn(
-            "absolute top-1/2 left-0 flex size-10 -translate-y-1/2 items-center justify-center",
-            classNames?.bubble,
-          )}
-          variants={iconBubbleVariants}
-          initial="collapsed"
-          animate={isExpanded ? "expanded" : "collapsed"}
-          transition={transition}
-        >
-          <div
+        {!inlineLeadingIcon ? (
+          <motion.div
             className={cn(
-              "flex size-10 items-center justify-center rounded-full",
-              surfaceClass,
-              classNames?.bubbleSurface,
+              "absolute top-1/2 left-0 flex size-10 -translate-y-1/2 items-center justify-center",
+              classNames?.bubble,
             )}
+            variants={iconBubbleVariants}
+            initial="collapsed"
+            animate={isExpanded ? "expanded" : "collapsed"}
+            transition={transition}
           >
-            <SearchIcon layoutId={iconLayoutId} />
-          </div>
-        </motion.div>
+            <div
+              className={cn(
+                "flex size-10 items-center justify-center rounded-full",
+                surfaceClass,
+                classNames?.bubbleSurface,
+              )}
+            >
+              <SearchIcon layoutId={iconLayoutId} />
+            </div>
+          </motion.div>
+        ) : null}
       </div>
     </div>
   );

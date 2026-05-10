@@ -99,15 +99,15 @@ export function MotionPrototype() {
         onSuburbClick={handleSuburbClick}
       />
 
-      {/* Top-left: suburb search */}
-      <div className="pointer-events-none absolute top-[12px] left-[12px] z-[1100] w-[min(280px,calc(100vw-48px))]">
-        <div className="pointer-events-auto w-full max-w-[280px]">
+      {/* Top-right: suburb search */}
+      <div className="pointer-events-none absolute top-[12px] right-[12px] z-[1100] w-[min(280px,calc(100vw-48px))]">
+        <div className="pointer-events-auto ml-auto w-full max-w-[280px]">
           <SuburbSearch onSelectSuburb={handleSuburbClick} />
         </div>
       </div>
 
-      {/* Top-left: State toggle stacked below search (search ~40px + gap) */}
-      <div className="absolute top-[64px] left-[12px] z-10 flex flex-col gap-2.5">
+      {/* Top-left: State toggle */}
+      <div className="absolute top-[12px] left-[12px] z-10 flex flex-col gap-2.5">
         <StateToggle current={stateKey} onChange={switchToState} />
         {showBack && (
           <button

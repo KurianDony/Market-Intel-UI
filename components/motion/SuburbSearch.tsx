@@ -93,31 +93,29 @@ export function SuburbSearch({ onSelectSuburb }: Props) {
     trigger:
       "bg-[rgba(10,10,18,0.96)] text-[#e0e6f5] ring-1 ring-[#00e5ff]/70 shadow-[0_0_18px_rgba(0,229,255,0.22)] focus-within:shadow-[0_0_28px_rgba(0,229,255,0.45)] focus-within:ring-[#00e5ff]",
     input: "text-[#e0e6f5] placeholder:opacity-0 leading-[2.5rem] py-0",
-    bubbleSurface:
-      "bg-[rgba(10,10,18,0.96)] text-[#00e5ff] ring-1 ring-[#00e5ff]/80 shadow-[0_0_14px_rgba(0,229,255,0.35)]",
   };
 
   return (
     <div ref={wrapRef} className="relative w-full max-w-[280px]">
       <GooeyInput
         key={gooeyResetKey}
+        inlineLeadingIcon
         value={query}
         onValueChange={setQuery}
         placeholder=""
         collapsedWidth={48}
         expandedWidth={260}
-        expandedOffset={48}
+        expandedOffset={0}
         gooeyBlur={5}
         onInputKeyDown={onInputKeyDown}
         classNames={{
           trigger: gooeyLook.trigger,
           input: gooeyLook.input,
-          bubbleSurface: gooeyLook.bubbleSurface,
         }}
       />
       {showList ? (
         <ul
-          className="absolute left-0 z-[1101] mt-2 w-full max-w-[280px] overflow-hidden rounded-xl border border-[#00e5ff]/50 py-1 shadow-[0_0_24px_rgba(0,229,255,0.35)] backdrop-blur-[12px]"
+          className="absolute right-0 z-[1101] mt-2 w-full max-w-[280px] overflow-hidden rounded-xl border border-[#00e5ff]/50 py-1 shadow-[0_0_24px_rgba(0,229,255,0.35)] backdrop-blur-[12px]"
           style={{ background: "rgba(10,10,18,0.96)" }}
           role="listbox"
         >
