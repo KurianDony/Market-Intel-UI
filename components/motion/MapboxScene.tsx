@@ -150,7 +150,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
           areasFCRef.current = areasData;
           suburbsFCRef.current = suburbsData;
 
-          // Suburb counts per NSW area — exposed via getAreaCounts() for legend
+          // Suburb counts per NSW area — exposed via getAreaCounts()
           const counts: Record<string, number> = {};
           (suburbsData.features as GeoJSON.Feature[]).forEach(f => {
             const p = f.properties as { area: string; state: string };
@@ -256,7 +256,11 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
               sf => (sf.properties as { area: string }).area === areaName
             ).length;
           const applyAreaFillHover = (e: mapboxgl.MapLayerMouseEvent) => {
-            if (levelRef.current !== "state") return;
+            if (levelRef.current !== "state") {
+              map.getCanvas().style.cursor = "";
+              setAreaHoverTooltip(null);
+              return;
+            }
             map.getCanvas().style.cursor = "pointer";
             if (!e.features?.length) return;
             const f = e.features[0];
@@ -594,10 +598,12 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             </div>
             <span
               style={{
+                display: "block",
                 fontSize: 10,
                 fontWeight: 500,
                 color: "#7a8aae",
                 letterSpacing: "0.3px",
+                marginTop: 2,
               }}
             >
               {areaHoverTooltip.count} suburbs · click to drill in
