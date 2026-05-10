@@ -15,8 +15,8 @@ import mapboxgl from "mapbox-gl";
 // Palette used by both the map paint expressions and the legend in
 // MotionPrototype. Lock-step with AREA_COLOR_BY_NAME below.
 export const CYBERPUNK_PALETTE = [
-  "#00ffff", "#00e5ff", "#00b8d4", "#29b6f6", "#2196f3",
-  "#3f51b5", "#7e57c2", "#d500f9", "#ff4081",
+  "#00fff5", "#00b8d4", "#4dd0e1", "#2196f3", "#7c4dff",
+  "#b388ff", "#d500f9", "#ff1493", "#ff5722",
 ];
 
 // NSW-only — exclude algorithmic boundary boxes
@@ -25,21 +25,20 @@ export const EXCLUDED_AREA_NAMES = ["Newcastle", "Wollongong", "North North", "Q
 // Explicit name → colour mapping. Exported so the legend in MotionPrototype
 // reads from the same source of truth as the map paint.
 export const AREA_COLOR_BY_NAME: Record<string, string> = {
-  "City":             "#00ffff",
-  "Eastern Suburbs":  "#00e5ff",
-  "Inner Inner West": "#00b8d4",
-  "Inner North":      "#29b6f6",
-  "Inner South":      "#2196f3",
-  "Inner West":       "#3f51b5",
-  "North":            "#7e57c2",
-  "South":            "#d500f9",
-  "West":             "#ff4081",
-  // Non-NSW (used at suburb level for QLD/TAS showcases)
-  "Newcastle":        "#e040fb",
-  "Wollongong":       "#9c27b0",
-  "North North":      "#5c6bc0",
-  "Queensland":       "#f50057",
-  "Tasmania":         "#ff1744",
+  City: "#00fff5",
+  "Eastern Suburbs": "#00b8d4",
+  "Inner Inner West": "#4dd0e1",
+  "Inner North": "#2196f3",
+  "Inner South": "#7c4dff",
+  "Inner West": "#b388ff",
+  North: "#d500f9",
+  South: "#ff1493",
+  West: "#ff5722",
+  Newcastle: "#ffab00",
+  Wollongong: "#ffd600",
+  "North North": "#76ff03",
+  Queensland: "#00e676",
+  Tasmania: "#18ffff",
 };
 
 // ── Frames ───────────────────────────────────────────────────────────────────
