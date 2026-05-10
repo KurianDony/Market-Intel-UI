@@ -4,6 +4,7 @@ import { useRef, useState, useCallback } from "react";
 import { MapboxScene, MapboxSceneHandle, Area, Suburb } from "./MapboxScene";
 import { AREA_COLOR_BY_NAME } from "./areaPalette";
 import { SuburbSearch } from "./SuburbSearch";
+import { EncryptedText } from "@/components/aceternity/encrypted-text";
 
 type StateKey = "NSW" | "QLD" | "TAS";
 type Level = "state" | "area" | "suburb";
@@ -156,6 +157,14 @@ export function MotionPrototype() {
         onSuburbClick={handleSuburbClick}
       />
 
+      {/* Top-centre brand (motion prototype only) */}
+      <div className="fixed top-[12px] left-1/2 z-[1000] -translate-x-1/2 pointer-events-none">
+        <EncryptedText
+          text="Market Meerkat"
+          className="inline-block whitespace-nowrap font-mono text-base font-bold uppercase tracking-[2px] text-[#00e5ff] opacity-90 [text-shadow:0_0_12px_rgba(0,229,255,0.6)]"
+        />
+      </div>
+
       {/* Top-right: suburb search */}
       <div className="pointer-events-none absolute top-[12px] right-[12px] z-[1100] w-[min(280px,calc(100vw-48px))]">
         <div className="pointer-events-auto ml-auto w-full max-w-[280px]">
@@ -176,10 +185,10 @@ export function MotionPrototype() {
         )}
       </div>
 
-      {/* Top-centre: Focus badge (suburb level only) */}
+      {/* Top-centre: Focus badge (suburb level only) — above brand header z */}
       {level === "suburb" && activeSuburb && (
         <div
-          className="absolute top-5 left-1/2 -translate-x-1/2 z-10 px-5 py-2 rounded-full text-black text-sm font-bold tracking-[0.15em] uppercase flex items-center gap-2 whitespace-nowrap"
+          className="absolute top-5 left-1/2 -translate-x-1/2 z-[1050] px-5 py-2 rounded-full text-black text-sm font-bold tracking-[0.15em] uppercase flex items-center gap-2 whitespace-nowrap"
           style={{
             background: "linear-gradient(135deg, #00e5ff 0%, #5b6cff 100%)",
             boxShadow: "0 0 20px rgba(0,229,255,0.55), 0 0 40px rgba(91,108,255,0.35)",

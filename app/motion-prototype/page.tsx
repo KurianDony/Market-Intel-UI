@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { MotionPrototype } from "@/components/motion/MotionPrototype";
 
 export const metadata: Metadata = {
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function MotionPrototypePage() {
-  return <MotionPrototype />;
+  return (
+    <Suspense fallback={null}>
+      <MotionPrototype />
+    </Suspense>
+  );
 }
+
