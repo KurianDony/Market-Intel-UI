@@ -7,7 +7,6 @@ import {
   Area,
   Suburb,
   AREA_COLOR_BY_NAME,
-  EXCLUDED_AREA_NAMES,
 } from "./MapboxScene";
 
 type StateKey = "NSW" | "QLD" | "TAS";
@@ -38,7 +37,6 @@ export function MotionPrototype() {
       .then((data: GeoJSON.FeatureCollection) => {
         const sortedNames = data.features
           .map(f => (f.properties as { name: string }).name)
-          .filter(n => !EXCLUDED_AREA_NAMES.includes(n))
           .sort();
         setAreas(sortedNames.map(name => {
           const f = data.features.find(ft => (ft.properties as { name: string }).name === name)!;
