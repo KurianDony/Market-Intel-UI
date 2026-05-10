@@ -97,7 +97,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
       <EncryptedText
         text={SPLASH_COPY}
         onRevealComplete={scheduleFadeAfterReveal}
-        className="inline-block whitespace-nowrap text-center font-mono text-[48px] font-bold uppercase tracking-[3px] text-[#00e5ff] opacity-95 [text-shadow:0_0_24px_rgba(0,229,255,0.65),0_0_48px_rgba(0,229,255,0.35)]"
+        className="inline-block whitespace-nowrap text-center font-mono text-[36px] font-bold uppercase tracking-[3px] text-[#00e5ff] opacity-95 [text-shadow:none]"
       />
     </div>
   );
