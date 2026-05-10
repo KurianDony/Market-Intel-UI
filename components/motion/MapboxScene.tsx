@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 
 // ── Stable baseline ──────────────────────────────────────────────────────────
@@ -18,9 +18,6 @@ export const CYBERPUNK_PALETTE = [
   "#00fff5", "#00b8d4", "#4dd0e1", "#2196f3", "#7c4dff",
   "#b388ff", "#d500f9", "#ff1493", "#ff5722",
 ];
-
-// NSW-only — exclude algorithmic boundary boxes
-export const EXCLUDED_AREA_NAMES = ["Newcastle", "Wollongong", "North North", "Queensland", "Tasmania"];
 
 // Explicit name → colour mapping. Exported so the legend in MotionPrototype
 // reads from the same source of truth as the map paint.
@@ -113,11 +110,31 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return hex;
+  const r = Number.parseInt(h.slice(0, 2), 16);
+  const g = Number.parseInt(h.slice(2, 4), 16);
+  const b = Number.parseInt(h.slice(4, 6), 16);
+  if (Number.isNaN(r + g + b)) return hex;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
   function MapboxScene({ onAreaClick, onSuburbClick }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const [areaHoverTooltip, setAreaHoverTooltip] = useState<{
+      pageX: number;
+      pageY: number;
+      name: string;
+      color: string;
+      count: number;
+    } | null>(null);
+    const dismissAreaHoverTooltip = useRef(() => {});
+    dismissAreaHoverTooltip.current = () => setAreaHoverTooltip(null);
+
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const levelRef = useRef<"state" | "area" | "suburb">("state");
     const activeAreaNameRef = useRef<string | null>(null);
@@ -187,14 +204,6 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             ["match", ["get", "name"], ...colorPairs, "#888888"] as mapboxgl.Expression;
           const suburbColorExpr: mapboxgl.Expression =
             ["match", ["get", "area"], ...colorPairs, "#888888"] as mapboxgl.Expression;
-          const NSW_FILTER: mapboxgl.FilterSpecification = [
-            "all",
-            ["!=", ["get", "name"], "Newcastle"],
-            ["!=", ["get", "name"], "Wollongong"],
-            ["!=", ["get", "name"], "North North"],
-            ["!=", ["get", "name"], "Queensland"],
-            ["!=", ["get", "name"], "Tasmania"],
-          ];
 
           // ── Areas: faint fill + coloured outline. No glow, no dim overlay.
           map.addSource("areas", { type: "geojson", data: areasData, promoteId: "name" });
@@ -202,7 +211,6 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             id: "areas-fill",
             type: "fill",
             source: "areas",
-            filter: NSW_FILTER,
             paint: {
               "fill-color": tileColorExpr,
               "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.20, 0.22],
@@ -212,7 +220,6 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             id: "areas-outline",
             type: "line",
             source: "areas",
-            filter: NSW_FILTER,
             paint: {
               "line-color": tileColorExpr,
               "line-width": 3,
@@ -271,23 +278,41 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             },
           });
 
-          // ── Hover: areas (state level) — feature-state only, cursor pointer.
+          // ── Hover: areas (state level) — feature-state + cursor banner + suburb count
           let hoveredAreaId: string | null = null;
-          map.on("mousemove", "areas-fill", e => {
+          const countSuburbsForArea = (areaName: string) =>
+            (suburbsData.features as GeoJSON.Feature[]).filter(
+              sf => (sf.properties as { area: string }).area === areaName
+            ).length;
+          const applyAreaFillHover = (e: mapboxgl.MapLayerMouseEvent) => {
             if (levelRef.current !== "state") return;
-            if (!e.features?.length) return;
             map.getCanvas().style.cursor = "pointer";
-            const id = String(e.features[0].id ?? "");
+            if (!e.features?.length) return;
+            const f = e.features[0];
+            const id = String(f.id ?? "");
             if (id && id !== hoveredAreaId) {
               if (hoveredAreaId) map.setFeatureState({ source: "areas", id: hoveredAreaId }, { hover: false });
               hoveredAreaId = id;
               map.setFeatureState({ source: "areas", id }, { hover: true });
             }
-          });
+            const areaName = (f.properties as { name: string }).name;
+            const color = AREA_COLOR_BY_NAME[areaName] ?? "#888888";
+            const oe = e.originalEvent as MouseEvent;
+            setAreaHoverTooltip({
+              pageX: oe.pageX + 14,
+              pageY: oe.pageY - 12,
+              name: areaName,
+              color,
+              count: countSuburbsForArea(areaName),
+            });
+          };
+          map.on("mouseenter", "areas-fill", applyAreaFillHover);
+          map.on("mousemove", "areas-fill", applyAreaFillHover);
           map.on("mouseleave", "areas-fill", () => {
             map.getCanvas().style.cursor = "";
             if (hoveredAreaId) map.setFeatureState({ source: "areas", id: hoveredAreaId }, { hover: false });
             hoveredAreaId = null;
+            setAreaHoverTooltip(null);
           });
 
           // ── Hover: suburbs ──
@@ -334,6 +359,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
 
       mapRef.current = map;
       return () => {
+        dismissAreaHoverTooltip.current();
         map.remove();
         mapRef.current = null;
         levelRef.current = "state";
@@ -428,6 +454,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
       goToNswState() {
         const map = mapRef.current;
         if (!map) return;
+        dismissAreaHoverTooltip.current();
         levelRef.current = "state";
         activeAreaNameRef.current = null;
         clearSuburbSelection(map);
@@ -454,6 +481,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
       drillToArea(area) {
         const map = mapRef.current;
         if (!map) return;
+        dismissAreaHoverTooltip.current();
         const fc = areasFCRef.current;
         const feature = fc?.features.find(
           f => (f.properties as { name: string }).name === area.name
@@ -482,6 +510,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
       focusSuburb(suburb) {
         const map = mapRef.current;
         if (!map) return;
+        dismissAreaHoverTooltip.current();
         const fc = suburbsFCRef.current;
         const feature = fc?.features.find(
           f => (f.properties as { slug: string }).slug === suburb.slug
@@ -511,6 +540,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
       upToArea(area) {
         const map = mapRef.current;
         if (!map) return;
+        dismissAreaHoverTooltip.current();
         const fc = areasFCRef.current;
         const feature = fc?.features.find(
           f => (f.properties as { name: string }).name === area.name
@@ -532,6 +562,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
       showSingleStateSuburb(suburb) {
         const map = mapRef.current;
         if (!map) return;
+        dismissAreaHoverTooltip.current();
         const fc = suburbsFCRef.current;
         const feature = fc?.features.find(
           f => (f.properties as { slug: string }).slug === suburb.slug
@@ -560,6 +591,49 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
       },
     }));
 
-    return <div ref={containerRef} className="absolute inset-0" />;
+    return (
+      <>
+        <div ref={containerRef} className="absolute inset-0" />
+        {areaHoverTooltip != null ? (
+          <div
+            className="font-sans"
+            style={{
+              position: "fixed",
+              left: areaHoverTooltip.pageX,
+              top: areaHoverTooltip.pageY,
+              zIndex: 1500,
+              pointerEvents: "none",
+              background: "rgba(10, 10, 18, 0.96)",
+              border: `1px solid ${areaHoverTooltip.color}`,
+              borderRadius: 8,
+              padding: "8px 14px",
+              boxShadow: `0 0 20px ${hexToRgba(areaHoverTooltip.color, 0.4)}`,
+            }}
+          >
+            <div
+              style={{
+                color: areaHoverTooltip.color,
+                fontWeight: 700,
+                fontSize: 12,
+                letterSpacing: "0.5px",
+                textTransform: "uppercase",
+              }}
+            >
+              {areaHoverTooltip.name}
+            </div>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 500,
+                color: "#7a8aae",
+                letterSpacing: "0.3px",
+              }}
+            >
+              {areaHoverTooltip.count} suburbs · click to drill in
+            </span>
+          </div>
+        ) : null}
+      </>
+    );
   }
 );
