@@ -206,7 +206,7 @@ export const MapboxScene = forwardRef<MapboxSceneHandle, Props>(
             filter: NSW_FILTER,
             paint: {
               "fill-color": tileColorExpr,
-              "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.20, 0.10],
+              "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.20, 0.22],
             },
           });
           map.addLayer({
