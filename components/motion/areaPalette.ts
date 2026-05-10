@@ -1,4 +1,4 @@
-/** Single source of truth: map fill/outline, suburb paint match, legend, hover banner chrome. */
+/** Map + hover chrome: one entry per area name. Neighbouring legend order should sit in different hue families (e.g. City cyan vs Eastern Suburbs hot pink). */
 
 export const AREA_COLOR_BY_NAME: Record<string, string> = {
   City: "#00ffff",
