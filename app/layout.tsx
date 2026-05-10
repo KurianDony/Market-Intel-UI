@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { SmoothCursor } from "@/components/magicui/smooth-cursor";
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -35,6 +36,7 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <SmoothCursor />
       </body>
     </html>
   );
