@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import { MapboxScene, MapboxSceneHandle, Area, Suburb } from "./MapboxScene";
 import { AREA_COLOR_BY_NAME } from "./areaPalette";
 
@@ -20,28 +20,9 @@ export function MotionPrototype() {
   const [level, setLevel] = useState<Level>("state");
   const [activeArea, setActiveArea] = useState<Area | null>(null);
   const [activeSuburb, setActiveSuburb] = useState<Suburb | null>(null);
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [legendOpen, setLegendOpen] = useState(true);
 
   const mapRef = useRef<MapboxSceneHandle>(null);
 
-  // Load NSW area list for legend
-  useEffect(() => {
-    fetch("/areas_smooth.geojson")
-      .then(r => r.json())
-      .then((data: GeoJSON.FeatureCollection) => {
-        const sortedNames = data.features
-          .map(f => (f.properties as { name: string }).name)
-          .sort();
-        setAreas(sortedNames.map(name => {
-          const f = data.features.find(ft => (ft.properties as { name: string }).name === name)!;
-          return f.properties as Area;
-        }));
-      })
-      .catch(err => console.error("[MotionPrototype] failed to load areas:", err));
-  }, []);
-
-  // Legend + map: same `AREA_COLOR_BY_NAME` from `areaPalette.ts`
   const colorFor = useCallback((areaName: string) => {
     return AREA_COLOR_BY_NAME[areaName] ?? "#7a8aae";
   }, []);
@@ -142,61 +123,6 @@ export function MotionPrototype() {
           <span className="text-base leading-none">◆</span>
           <span>Focus: {activeSuburb.name}</span>
           <span className="opacity-60 font-medium">{activeSuburb.postcode}</span>
-        </div>
-      )}
-
-      {/* Right side panel: NSW area legend */}
-      {stateKey === "NSW" && (
-        <div
-          className={`absolute top-4 right-4 z-10 rounded-xl text-[#e0e6f5] transition-[width] duration-200 ${
-            legendOpen ? "w-60" : "w-auto"
-          }`}
-          style={{
-            background: "rgba(10,10,18,0.96)",
-            border: "1px solid #1a1a3a",
-            backdropFilter: "blur(12px)",
-          }}
-        >
-          <button
-            className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-bold tracking-[0.2em] uppercase hover:text-[#00e5ff]"
-            style={{ color: "#00e5ff", textShadow: "0 0 8px rgba(0,229,255,0.4)" }}
-            onClick={() => setLegendOpen(o => !o)}
-          >
-            <span>Areas</span>
-            <span className="opacity-50">{legendOpen ? "−" : "+"}</span>
-          </button>
-          {legendOpen && (
-            <>
-              <div className="px-4 pb-2 text-[11px] text-[#7a8aae] tracking-wide">
-                Click any area to drill in
-              </div>
-              <div className="max-h-[58vh] overflow-y-auto px-1.5 pb-2">
-                {areas.map((area) => {
-                  const isActive = activeArea?.name === area.name;
-                  return (
-                    <button
-                      key={area.slug}
-                      onClick={() => goToArea(area)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-md text-sm flex items-center gap-2.5 transition-all ${
-                        isActive
-                          ? "bg-[rgba(0,229,255,0.12)] text-white"
-                          : "text-[#a4afc8] hover:bg-[rgba(0,229,255,0.06)] hover:text-white"
-                      }`}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                        style={{
-                          backgroundColor: colorFor(area.name),
-                          boxShadow: `0 0 6px ${colorFor(area.name)}`,
-                        }}
-                      />
-                      <span className="truncate">{area.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
         </div>
       )}
 
