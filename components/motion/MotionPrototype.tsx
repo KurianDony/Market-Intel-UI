@@ -99,15 +99,15 @@ export function MotionPrototype() {
         onSuburbClick={handleSuburbClick}
       />
 
-      {/* Top-centre: suburb search (above map chrome) */}
-      <div className="pointer-events-none absolute top-[12px] left-1/2 z-[1100] w-full max-w-[400px] -translate-x-1/2 px-3">
-        <div className="pointer-events-auto mx-auto w-full max-w-[400px] flex justify-center">
+      {/* Top-left: suburb search */}
+      <div className="pointer-events-none absolute top-[12px] left-[12px] z-[1100] w-[min(280px,calc(100vw-48px))]">
+        <div className="pointer-events-auto w-full max-w-[280px]">
           <SuburbSearch onSelectSuburb={handleSuburbClick} />
         </div>
       </div>
 
-      {/* Top-left: State toggle + (optionally) Back button */}
-      <div className="absolute top-4 left-4 z-10 flex flex-col gap-2.5">
+      {/* Top-left: State toggle stacked below search (search ~40px + gap) */}
+      <div className="absolute top-[64px] left-[12px] z-10 flex flex-col gap-2.5">
         <StateToggle current={stateKey} onChange={switchToState} />
         {showBack && (
           <button

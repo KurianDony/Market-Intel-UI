@@ -49,7 +49,7 @@ function SearchIcon({ layoutId }: { layoutId: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      className="size-4 shrink-0"
+      className="size-4 shrink-0 leading-none"
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
@@ -230,7 +230,7 @@ export function GooeyInput({
               disabled={disabled || !isExpanded}
               placeholder={placeholder}
               className={cn(
-                "h-full min-w-0 flex-1 bg-transparent text-sm text-background outline-none",
+                "h-full min-h-0 min-w-0 flex-1 bg-transparent py-0 text-sm leading-[2.5rem] text-background outline-none",
                 isExpanded
                   ? "placeholder:text-background/50 dark:placeholder:text-background/45"
                   : "pointer-events-none placeholder:text-background/80 dark:placeholder:text-background/70",
