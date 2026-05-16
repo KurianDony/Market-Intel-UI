@@ -235,7 +235,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             layout: {
               visibility: "none",
               "text-field": ["get", "name"],
-              "text-size": 11,
+              "text-size": ["interpolate", ["linear"], ["zoom"], 11, 11, 13, 22],
               "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Regular"],
               "text-anchor": "center",
               "text-allow-overlap": false,
