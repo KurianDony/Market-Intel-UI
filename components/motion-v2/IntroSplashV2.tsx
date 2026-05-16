@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import {
-  EncryptedText,
   ENCRYPTED_TEXT_DEFAULT_REVEAL_MS,
 } from "@/components/aceternity/encrypted-text";
+
+const EncryptedText = dynamic(
+  () => import("@/components/aceternity/encrypted-text").then(m => m.EncryptedText),
+  { ssr: false },
+);
 
 const SPLASH_COPY = "Market Meerkat";
 
