@@ -18,7 +18,7 @@ const FLAT_PITCH = 0;
 
 // Suburb paint expressions — clicked suburb gets the only fill.
 const SUBURB_FILL_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "selected"], false], 0.03, 0,
+  "case", ["boolean", ["feature-state", "selected"], false], 0.30, 0,
 ];
 
 // ── Types ────────────────────────────────────────────────────────────────────
