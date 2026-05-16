@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import { AREA_COLOR_BY_NAME } from "@/lib/palette/v2";
+import { INK_0, INK_100, INK_60 } from "@/lib/palette/v2";
 
 // ── Stable baseline ──────────────────────────────────────────────────────────
 // Area colours: `lib/palette/v2.ts` (passthrough) — seam for brutalist fork.
@@ -17,14 +17,12 @@ const SUBURB_PITCH = 35;
 const FLAT_PITCH = 0;
 
 // Suburb paint expressions — swapped between area and suburb-focused modes.
+/** Match areas-fill at state level: near-invisible fill, slightly brighter on hover. */
 const SUBURB_FILL_AREA_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "hover"], false], 0.55, 0.25,
+  "case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03,
 ];
 const SUBURB_FILL_SUBURB_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "selected"], false], 0.45, 0.08,
-];
-const SUBURB_LINE_AREA_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "hover"], false], 2.6, 1.8,
+  "case", ["boolean", ["feature-state", "selected"], false], 1.0, 0.35,
 ];
 const SUBURB_LINE_SUBURB_MODE: mapboxgl.Expression = [
   "case", ["boolean", ["feature-state", "selected"], false], 2.4, 1.0,
@@ -81,16 +79,6 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const h = hex.replace("#", "");
-  if (h.length !== 6) return hex;
-  const r = Number.parseInt(h.slice(0, 2), 16);
-  const g = Number.parseInt(h.slice(2, 4), 16);
-  const b = Number.parseInt(h.slice(4, 6), 16);
-  if (Number.isNaN(r + g + b)) return hex;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
@@ -100,7 +88,6 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       pageX: number;
       pageY: number;
       name: string;
-      color: string;
       count: number;
     } | null>(null);
     const dismissAreaHoverTooltip = useRef(() => {});
@@ -169,22 +156,26 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             })),
           };
 
-          // Paint expression: name → palette colour. Used for fill + outline.
-          const colorPairs = Object.entries(AREA_COLOR_BY_NAME).flatMap(([n, c]) => [n, c]);
-          const tileColorExpr: mapboxgl.Expression =
-            ["match", ["get", "name"], ...colorPairs, "#888888"] as mapboxgl.Expression;
-          const suburbColorExpr: mapboxgl.Expression =
-            ["match", ["get", "area"], ...colorPairs, "#888888"] as mapboxgl.Expression;
-
-          // ── Areas: faint fill + coloured outline. No glow, no dim overlay.
+          // ── Areas: B&W inks only — brightness changes on hover, no hue shift.
           map.addSource("areas", { type: "geojson", data: areasData, promoteId: "name" });
           map.addLayer({
             id: "areas-fill",
             type: "fill",
             source: "areas",
             paint: {
-              "fill-color": tileColorExpr,
-              "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.20, 0.22],
+              "fill-color": INK_100,
+              "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03],
+            },
+          });
+          map.addLayer({
+            id: "areas-outline-glow",
+            type: "line",
+            source: "areas",
+            paint: {
+              "line-color": INK_100,
+              "line-width": 6,
+              "line-opacity": 0.3,
+              "line-blur": 3,
             },
           });
           map.addLayer({
@@ -192,9 +183,9 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             type: "line",
             source: "areas",
             paint: {
-              "line-color": tileColorExpr,
-              "line-width": 3,
-              "line-opacity": 1.0,
+              "line-color": INK_100,
+              "line-width": 1.5,
+              "line-opacity": 0.9,
             },
           });
           // Dashed outline shown only when drilled into a single area.
@@ -204,8 +195,8 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             source: "areas",
             layout: { visibility: "none" },
             paint: {
-              "line-color": tileColorExpr,
-              "line-width": 2,
+              "line-color": INK_100,
+              "line-width": 1,
               "line-opacity": 0.7,
               "line-dasharray": [2, 2],
             },
@@ -219,14 +210,33 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             type: "fill",
             source: "suburbs",
             layout: { visibility: "none" },
-            paint: { "fill-color": suburbColorExpr, "fill-opacity": SUBURB_FILL_AREA_MODE },
+            paint: {
+              "fill-color": INK_100,
+              "fill-opacity": SUBURB_FILL_AREA_MODE,
+            },
+          });
+          map.addLayer({
+            id: "suburbs-outline-glow",
+            type: "line",
+            source: "suburbs",
+            layout: { visibility: "none" },
+            paint: {
+              "line-color": INK_100,
+              "line-width": 6,
+              "line-opacity": 0.3,
+              "line-blur": 3,
+            },
           });
           map.addLayer({
             id: "suburbs-outline",
             type: "line",
             source: "suburbs",
             layout: { visibility: "none" },
-            paint: { "line-color": suburbColorExpr, "line-width": SUBURB_LINE_AREA_MODE, "line-opacity": 0.9 },
+            paint: {
+              "line-color": INK_100,
+              "line-width": 1.5,
+              "line-opacity": 0.9,
+            },
           });
           map.addLayer({
             id: "suburbs-label",
@@ -243,8 +253,8 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
               "symbol-placement": "point",
             },
             paint: {
-              "text-color": suburbColorExpr,
-              "text-halo-color": "#000000",
+              "text-color": INK_100,
+              "text-halo-color": INK_0,
               "text-halo-width": 1.6,
             },
           });
@@ -271,13 +281,11 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
               map.setFeatureState({ source: "areas", id }, { hover: true });
             }
             const areaName = (f.properties as { name: string }).name;
-            const color = AREA_COLOR_BY_NAME[areaName] ?? "#888888";
             const oe = e.originalEvent as MouseEvent;
             setAreaHoverTooltip({
               pageX: oe.pageX + 14,
               pageY: oe.pageY - 12,
               name: areaName,
-              color,
               count: countSuburbsForArea(areaName),
             });
           };
@@ -351,10 +359,12 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     }
     function setAreasVisible(map: mapboxgl.Map, visible: boolean) {
-      ["areas-fill", "areas-outline"].forEach(id => setLayerVis(map, id, visible));
+      ["areas-fill", "areas-outline-glow", "areas-outline"].forEach(id => setLayerVis(map, id, visible));
     }
     function setSuburbsVisible(map: mapboxgl.Map, visible: boolean) {
-      ["suburbs-fill", "suburbs-outline", "suburbs-label"].forEach(id => setLayerVis(map, id, visible));
+      ["suburbs-fill", "suburbs-outline-glow", "suburbs-outline", "suburbs-label"].forEach(id =>
+        setLayerVis(map, id, visible),
+      );
     }
     function setActiveAreaDashed(map: mapboxgl.Map, areaName: string | null) {
       if (!map.getLayer("areas-outline-active")) return;
@@ -363,12 +373,14 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       setLayerVis(map, "areas-outline-active", true);
     }
     function setSuburbFilter(map: mapboxgl.Map, predicate: mapboxgl.FilterSpecification) {
-      ["suburbs-fill", "suburbs-outline", "suburbs-label"].forEach(id => map.setFilter(id, predicate));
+      ["suburbs-fill", "suburbs-outline-glow", "suburbs-outline", "suburbs-label"].forEach(id =>
+        map.setFilter(id, predicate),
+      );
     }
     function setSuburbsPaintMode(map: mapboxgl.Map, mode: "area" | "suburb") {
       if (mode === "area") {
         map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_AREA_MODE);
-        map.setPaintProperty("suburbs-outline", "line-width", SUBURB_LINE_AREA_MODE);
+        map.setPaintProperty("suburbs-outline", "line-width", 1.5);
         map.setPaintProperty("suburbs-outline", "line-opacity", 0.9);
       } else {
         map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_SUBURB_MODE);
@@ -578,16 +590,15 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
               top: areaHoverTooltip.pageY,
               zIndex: 1500,
               pointerEvents: "none",
-              background: "rgba(10, 10, 18, 0.96)",
-              border: `1px solid ${areaHoverTooltip.color}`,
+              background: INK_0,
+              border: `1px solid ${INK_100}`,
               borderRadius: 8,
               padding: "8px 14px",
-              boxShadow: `0 0 20px ${hexToRgba(areaHoverTooltip.color, 0.4)}`,
             }}
           >
             <div
               style={{
-                color: areaHoverTooltip.color,
+                color: INK_100,
                 fontWeight: 700,
                 fontSize: 12,
                 letterSpacing: "0.5px",
@@ -601,7 +612,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
                 display: "block",
                 fontSize: 10,
                 fontWeight: 500,
-                color: "#7a8aae",
+                color: INK_60,
                 letterSpacing: "0.3px",
                 marginTop: 2,
               }}
