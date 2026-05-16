@@ -16,19 +16,9 @@ export const NSW_STATE_BBOX: mapboxgl.LngLatBoundsLike = [150.50, -34.55, 151.95
 const SUBURB_PITCH = 35;
 const FLAT_PITCH = 0;
 
-// Suburb paint expressions — swapped between area and suburb-focused modes.
-/** Match areas-fill at state level: near-invisible fill, slightly brighter on hover. */
-const SUBURB_FILL_AREA_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03,
-];
-const SUBURB_FILL_SUBURB_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "selected"], false], 1.0, 0.35,
-];
-const SUBURB_LINE_SUBURB_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "selected"], false], 2.4, 1.0,
-];
-const SUBURB_LINE_OPACITY_SUBURB_MODE: mapboxgl.Expression = [
-  "case", ["boolean", ["feature-state", "selected"], false], 0.95, 0.4,
+// Suburb paint expressions — clicked suburb gets the only fill.
+const SUBURB_FILL_MODE: mapboxgl.Expression = [
+  "case", ["boolean", ["feature-state", "selected"], false], 0.03, 0,
 ];
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -212,7 +202,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             layout: { visibility: "none" },
             paint: {
               "fill-color": INK_100,
-              "fill-opacity": SUBURB_FILL_AREA_MODE,
+              "fill-opacity": SUBURB_FILL_MODE,
             },
           });
           map.addLayer({
@@ -222,9 +212,9 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             layout: { visibility: "none" },
             paint: {
               "line-color": INK_100,
-              "line-width": 6,
+              "line-width": 18,
               "line-opacity": 0.3,
-              "line-blur": 3,
+              "line-blur": 9,
             },
           });
           map.addLayer({
@@ -234,7 +224,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             layout: { visibility: "none" },
             paint: {
               "line-color": INK_100,
-              "line-width": 1.5,
+              "line-width": 4.5,
               "line-opacity": 0.9,
             },
           });
@@ -379,13 +369,13 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
     }
     function setSuburbsPaintMode(map: mapboxgl.Map, mode: "area" | "suburb") {
       if (mode === "area") {
-        map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_AREA_MODE);
-        map.setPaintProperty("suburbs-outline", "line-width", 1.5);
+        map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_MODE);
+        map.setPaintProperty("suburbs-outline", "line-width", 4.5);
         map.setPaintProperty("suburbs-outline", "line-opacity", 0.9);
       } else {
-        map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_SUBURB_MODE);
-        map.setPaintProperty("suburbs-outline", "line-width", SUBURB_LINE_SUBURB_MODE);
-        map.setPaintProperty("suburbs-outline", "line-opacity", SUBURB_LINE_OPACITY_SUBURB_MODE);
+        map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_MODE);
+        map.setPaintProperty("suburbs-outline", "line-width", 4.5);
+        map.setPaintProperty("suburbs-outline", "line-opacity", 0.9);
       }
     }
     function clearSuburbSelection(map: mapboxgl.Map) {
