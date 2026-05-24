@@ -4,6 +4,7 @@ import { useRef, useState, useCallback } from "react";
 import { MapboxScene, MapboxSceneHandle, Area, Suburb } from "./MapboxScene";
 import { AREA_COLOR_BY_NAME } from "./areaPalette";
 import { SuburbSearch } from "./SuburbSearch";
+import { SeeDataLink } from "@/components/motion-v2/SeeDataLink";
 
 type StateKey = "NSW" | "QLD" | "TAS";
 type Level = "state" | "area" | "suburb";
@@ -189,6 +190,15 @@ export function MotionPrototype() {
           <span>Focus: {activeSuburb.name}</span>
           <span className="opacity-60 font-medium">{activeSuburb.postcode}</span>
         </div>
+      )}
+
+      {(level === "area" || level === "suburb") && activeArea && (
+        <SeeDataLink
+          level={level}
+          stateKey={stateKey}
+          area={activeArea}
+          suburb={activeSuburb}
+        />
       )}
 
       {/* Bottom-centre: breadcrumb */}

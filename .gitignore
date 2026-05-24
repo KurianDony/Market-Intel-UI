@@ -21,6 +21,7 @@
 /build
 
 # misc
+.npm-cache
 .DS_Store
 *.pem
 

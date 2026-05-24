@@ -2,8 +2,9 @@
 
 import { useRef, useState, useCallback } from "react";
 import { MapboxSceneV2, MapboxSceneHandle, Area, Suburb } from "./MapboxSceneV2";
-import { AREA_COLOR_BY_NAME } from "@/lib/palette/v2";
+import { ACCENT_RED, AREA_COLOR_BY_NAME, INK_0, INK_10, INK_40, INK_80, INK_100 } from "@/lib/palette/v2";
 import { SuburbSearchV2 } from "./SuburbSearchV2";
+import { SeeDataLink } from "./SeeDataLink";
 
 type StateKey = "NSW" | "QLD" | "TAS";
 type Level = "state" | "area" | "suburb";
@@ -24,9 +25,7 @@ export function MotionPrototypeV2() {
 
   const mapRef = useRef<MapboxSceneHandle>(null);
 
-  const colorFor = useCallback((areaName: string) => {
-    return AREA_COLOR_BY_NAME[areaName] ?? "#7a8aae";
-  }, []);
+  const colorFor = useCallback((areaName: string) => AREA_COLOR_BY_NAME[areaName] ?? INK_100, []);
 
   // ── Map → React click handlers ──────────────────────────────────────────
 
@@ -149,7 +148,7 @@ export function MotionPrototypeV2() {
   const showBack = stateKey === "NSW" && level !== "state";
 
   return (
-    <div className="relative w-full h-dvh overflow-hidden bg-[#05050a] text-[#e0e6f5]">
+    <div className="relative w-full h-dvh overflow-hidden bg-[#000000] text-[#ffffff]">
       <MapboxSceneV2
         ref={mapRef}
         onAreaClick={handleAreaClick}
@@ -169,7 +168,8 @@ export function MotionPrototypeV2() {
         {showBack && (
           <button
             onClick={goBack}
-            className="self-start text-[#e0e6f5] text-xs font-bold tracking-[0.18em] uppercase px-4 py-2 rounded-md bg-[rgba(10,10,18,0.96)] border border-[#1a1a3a] hover:border-[#00e5ff] hover:text-[#00e5ff] hover:shadow-[0_0_12px_rgba(0,229,255,0.35)] transition-all"
+            className="self-start border border-solid text-xs font-bold tracking-[0.18em] uppercase px-4 py-2 rounded-md transition-colors hover:bg-[#1a1a1a]"
+            style={{ background: INK_0, borderColor: INK_100, color: INK_100 }}
           >
             ← Back
           </button>
@@ -179,24 +179,36 @@ export function MotionPrototypeV2() {
       {/* Top-centre: Focus badge (suburb level only) */}
       {level === "suburb" && activeSuburb && (
         <div
-          className="absolute top-5 left-1/2 -translate-x-1/2 z-10 px-5 py-2 rounded-full text-black text-sm font-bold tracking-[0.15em] uppercase flex items-center gap-2 whitespace-nowrap"
+          className="absolute top-5 left-1/2 -translate-x-1/2 z-10 px-5 py-2 rounded-full text-sm font-bold tracking-[0.15em] uppercase flex items-center gap-2 whitespace-nowrap border border-solid bg-transparent"
           style={{
-            background: "linear-gradient(135deg, #00e5ff 0%, #5b6cff 100%)",
-            boxShadow: "0 0 20px rgba(0,229,255,0.55), 0 0 40px rgba(91,108,255,0.35)",
+            borderColor: ACCENT_RED,
+            color: INK_100,
+            boxShadow: "none",
           }}
         >
-          <span className="text-base leading-none">◆</span>
+          <span className="text-base leading-none" style={{ color: INK_100 }}>
+            ◆
+          </span>
           <span>Focus: {activeSuburb.name}</span>
           <span className="opacity-60 font-medium">{activeSuburb.postcode}</span>
         </div>
       )}
 
+      {(level === "area" || level === "suburb") && activeArea && (
+        <SeeDataLink
+          level={level}
+          stateKey={stateKey}
+          area={activeArea}
+          suburb={activeSuburb}
+        />
+      )}
+
       {/* Bottom-centre: breadcrumb */}
       <div
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 rounded-full px-2 py-1 flex items-center gap-1"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 rounded-full px-2 py-1 flex items-center gap-1 border border-solid backdrop-blur-[12px]"
         style={{
-          background: "rgba(10,10,18,0.96)",
-          border: "1px solid #1a1a3a",
+          background: INK_10,
+          borderColor: INK_40,
           backdropFilter: "blur(12px)",
         }}
       >
@@ -242,11 +254,10 @@ function StateToggle({ current, onChange }: { current: StateKey; onChange: (k: S
   ];
   return (
     <div
-      className="inline-flex p-1 rounded-full gap-1"
+      className="inline-flex p-1 rounded-full gap-1 border border-solid backdrop-blur-[12px]"
       style={{
-        background: "rgba(10,10,18,0.96)",
-        border: "1px solid #1a1a3a",
-        backdropFilter: "blur(12px)",
+        background: INK_10,
+        borderColor: INK_100,
       }}
     >
       {states.map(({ key, label }) => {
@@ -255,15 +266,14 @@ function StateToggle({ current, onChange }: { current: StateKey; onChange: (k: S
           <button
             key={key}
             onClick={() => onChange(key)}
-            className="px-3.5 py-1.5 rounded-full text-xs font-bold tracking-[0.15em] uppercase transition-all"
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold tracking-[0.15em] uppercase transition-colors border border-transparent ${active ? "" : "hover:bg-[#1a1a1a]"}`}
             style={
               active
-                ? {
-                    background: "linear-gradient(135deg, #00e5ff 0%, #5b6cff 100%)",
-                    color: "#000",
-                    boxShadow: "0 0 14px rgba(0,229,255,0.55)",
+                ? { background: INK_100, color: INK_0 }
+                : {
+                    color: INK_100,
+                    background: "transparent",
                   }
-                : { color: "#7a8aae", background: "transparent" }
             }
           >
             {label}
@@ -284,17 +294,16 @@ function Crumb({
   return (
     <button
       onClick={onClick}
-      className="text-xs font-bold tracking-[0.15em] uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all"
-      style={
-        active
-          ? { color: "#fff", background: "rgba(0,229,255,0.12)" }
-          : { color: "#7a8aae", background: "transparent" }
-      }
+      className="text-xs font-bold tracking-[0.15em] uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors"
+      style={{
+        color: active ? INK_100 : INK_80,
+        background: "transparent",
+      }}
     >
       {dotColor && (
         <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: dotColor, boxShadow: `0 0 4px ${dotColor}` }}
+          className="w-1.5 h-1.5 rounded-full shrink-0"
+          style={{ backgroundColor: dotColor }}
         />
       )}
       {label}
@@ -303,7 +312,7 @@ function Crumb({
 }
 
 function Sep() {
-  return <span className="text-[#3a3a5a] text-xs">›</span>;
+  return <span className="text-xs select-none" style={{ color: INK_40 }}>›</span>;
 }
 
 function slugify(s: string): string {
