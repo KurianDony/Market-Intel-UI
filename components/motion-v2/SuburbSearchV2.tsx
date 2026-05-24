@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { GooeyInput } from "@/components/aceternity/gooey-input";
-import { AREA_COLOR_BY_NAME } from "@/lib/palette/v2";
+import { INK_5, INK_20, INK_100 } from "@/lib/palette/v2";
 import type { Suburb } from "./MapboxSceneV2";
 
 type Props = {
@@ -92,8 +92,8 @@ export function SuburbSearchV2({ onNavigateToSuburb }: Props) {
 
   const gooeyLook = {
     trigger:
-      "bg-[rgba(10,10,18,0.96)] text-[#e0e6f5] ring-1 ring-[#00e5ff]/70 shadow-[0_0_18px_rgba(0,229,255,0.22)] focus-within:shadow-[0_0_28px_rgba(0,229,255,0.45)] focus-within:ring-[#00e5ff]",
-    input: "text-[#e0e6f5] placeholder:opacity-0 leading-[2.5rem] py-0",
+      "bg-[#000000] text-[#ffffff] ring-1 ring-[#ffffff] shadow-[0_0_14px_rgba(255,255,255,0.08)] focus-within:ring-[#ffffff]",
+    input: "text-[#ffffff] placeholder:opacity-0 leading-[2.5rem] py-0",
   };
 
   return (
@@ -116,26 +116,36 @@ export function SuburbSearchV2({ onNavigateToSuburb }: Props) {
       />
       {showList ? (
         <ul
-          className="absolute right-0 z-[1101] mt-2 w-full max-w-[280px] overflow-hidden rounded-xl border border-[#00e5ff]/50 py-1 shadow-[0_0_24px_rgba(0,229,255,0.35)] backdrop-blur-[12px]"
-          style={{ background: "rgba(10,10,18,0.96)" }}
+          className="absolute right-0 z-[1101] mt-2 w-full max-w-[280px] overflow-hidden rounded-xl py-1 backdrop-blur-[12px]"
+          style={{
+            background: INK_5,
+            border: `1px solid ${INK_20}`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}
           role="listbox"
         >
           {matches.map(f => {
             const p = f.properties as Suburb;
-            const areaColor = AREA_COLOR_BY_NAME[p.area] ?? "#7a8aae";
             return (
-              <li key={p.slug} role="option">
+              <li
+                key={p.slug}
+                role="option"
+                className="border-b border-solid last:border-b-0"
+                style={{ borderColor: INK_20 }}
+              >
                 <button
                   type="button"
-                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-[rgba(0,229,255,0.08)]"
+                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-[#1a1a1a]"
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => pick(f)}
                 >
-                  <span className="text-[13px] font-semibold text-[#f0f4ff]">{p.name}</span>
-                  <span className="text-[11px] text-[#7a8aae] tracking-wide">
+                  <span className="text-[13px] font-semibold" style={{ color: INK_100 }}>
+                    {p.name}
+                  </span>
+                  <span className="text-[11px] tracking-wide" style={{ color: INK_100 }}>
                     {p.postcode}
                     {" · "}
-                    <span style={{ color: areaColor }}>{p.area}</span>
+                    <span style={{ opacity: 0.85 }}>{p.area}</span>
                   </span>
                 </button>
               </li>
