@@ -1,41 +1,79 @@
 "use client";
 
-import { useEffect, useState, type ReactElement } from "react";
-import { ResponsiveContainer } from "recharts";
+import {
+  cloneElement,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 
 /** Match DashboardCard chart viewport heights (explicit px — not %). */
 export const CHART_HEIGHT_DEFAULT = 240;
 export const CHART_HEIGHT_COMPACT = 120;
 export const CHART_HEIGHT_TALL = 320;
 
+type SizedChartProps = { width?: number; height?: number };
+
 type ChartViewportProps = {
   height?: number;
-  children: ReactElement;
+  children: ReactElement<SizedChartProps>;
 };
 
+function readContainerWidth(el: HTMLElement): number {
+  const w = el.getBoundingClientRect().width;
+  return w > 0 ? Math.floor(w) : 0;
+}
+
 /**
- * Gates Recharts until after mount so ResponsiveContainer measures a real box.
- * Uses numeric height (not 100%) to avoid 0×0 layout under App Router hydration.
+ * Measures the chart box with our own ResizeObserver and passes numeric width/height
+ * directly to Recharts — avoids ResponsiveContainer's stalled observer under
+ * Next App Router + React 19 production builds.
  */
 export function ChartViewport({
   height = CHART_HEIGHT_DEFAULT,
   children,
 }: ChartViewportProps) {
-  const [mounted, setMounted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
 
-  useEffect(() => {
-    setMounted(true);
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const applyWidth = () => {
+      const next = readContainerWidth(el);
+      setWidth((prev) => (prev === next ? prev : next));
+    };
+
+    applyWidth();
+
+    const observer = new ResizeObserver(() => {
+      applyWidth();
+    });
+    observer.observe(el);
+
+    const raf1 = requestAnimationFrame(() => {
+      applyWidth();
+      requestAnimationFrame(applyWidth);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      observer.disconnect();
+    };
   }, []);
 
-  if (!mounted) {
-    return <div className="w-full" style={{ height, minHeight: height }} aria-hidden />;
-  }
-
   return (
-    <div className="w-full" style={{ height, minHeight: height }}>
-      <ResponsiveContainer width="100%" height={height} debounce={1}>
-        {children}
-      </ResponsiveContainer>
+    <div
+      ref={containerRef}
+      className="w-full"
+      style={{ height, minHeight: height }}
+      data-chart-viewport=""
+    >
+      {width > 0
+        ? cloneElement(children, { width, height })
+        : null}
     </div>
   );
 }
