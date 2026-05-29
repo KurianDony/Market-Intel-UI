@@ -40,9 +40,9 @@ export function ListingMixStackedBar({
       >
         <CartesianGrid {...CHART_GRID} horizontal={false} />
         <XAxis type="number" {...CHART_AXIS} />
-        <YAxis type="category" dataKey="suburb" {...CHART_AXIS} width={88} />
+        <YAxis type="category" dataKey="suburb" {...CHART_AXIS} width={72} tick={{ fill: CHART_AXIS.tick.fill, fontSize: 10 }} />
         <Tooltip {...CHART_TOOLTIP} />
-        <Legend {...CHART_LEGEND} />
+        <Legend {...CHART_LEGEND} wrapperStyle={{ ...CHART_LEGEND.wrapperStyle, fontSize: 10 }} iconSize={8} />
         {LISTING_MIX_FIELDS.map((field, i) => (
           <Bar
             key={field}

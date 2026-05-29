@@ -16,19 +16,26 @@ export function ListingMixDonut({ mix }: { mix: DashAreaListingMix }) {
           data={slices}
           dataKey="value"
           nameKey="label"
-          cx="40%"
+          cx="38%"
           cy="50%"
-          innerRadius={55}
-          outerRadius={85}
+          innerRadius={28}
+          outerRadius={44}
           stroke={INK_0}
-          strokeWidth={2}
+          strokeWidth={1.5}
         >
           {slices.map((s) => (
             <Cell key={s.field} fill={s.color} />
           ))}
         </Pie>
         <Tooltip {...CHART_TOOLTIP} />
-        <Legend {...CHART_LEGEND} layout="vertical" align="right" verticalAlign="middle" />
+        <Legend
+          {...CHART_LEGEND}
+          wrapperStyle={{ ...CHART_LEGEND.wrapperStyle, fontSize: 10 }}
+          layout="vertical"
+          align="right"
+          verticalAlign="middle"
+          iconSize={8}
+        />
       </PieChart>
     </ResponsiveContainer>
   );

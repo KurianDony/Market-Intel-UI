@@ -132,7 +132,7 @@ export async function AreaDashboardContent({ params }: Props) {
         >
           <SupplyPercentileChart rows={supplyPercentiles} />
         </DashboardCard>
-        <DashboardCard title="Listing Type Mix" subtitle="aggregate · all suburbs in area">
+        <DashboardCard title="Listing Type Mix" subtitle="aggregate · all suburbs in area" compact>
           {listingMix ? (
             <ListingMixDonut mix={listingMix} />
           ) : (
@@ -154,7 +154,7 @@ export async function AreaDashboardContent({ params }: Props) {
           title="Listing Type Mix · per Suburb"
           subtitle="stacked bar · how composition varies inside the area"
           span={2}
-          tall
+          compact
         >
           <ListingMixStackedBar rows={listingMixBySuburb} />
         </DashboardCard>

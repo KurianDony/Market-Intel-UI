@@ -5,6 +5,7 @@ export function DashboardCard({
   subtitle,
   span = 1,
   tall,
+  compact,
   autoHeight,
   children,
 }: {
@@ -12,6 +13,8 @@ export function DashboardCard({
   subtitle?: string;
   span?: 1 | 2;
   tall?: boolean;
+  /** ~half default chart height — secondary tiles. */
+  compact?: boolean;
   /** Tables / custom content — skip fixed chart viewport. */
   autoHeight?: boolean;
   children: React.ReactNode;
@@ -33,7 +36,9 @@ export function DashboardCard({
       </div>
       <div
         className="relative"
-        style={autoHeight ? undefined : { height: tall ? 320 : 240 }}
+        style={
+          autoHeight ? undefined : { height: compact ? 120 : tall ? 320 : 240 }
+        }
       >
         {children}
       </div>
