@@ -5,7 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -17,11 +16,14 @@ import {
   LISTING_MIX_LABELS,
 } from "@/lib/dash/listing-mix";
 import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
+import { ChartViewport, CHART_HEIGHT_COMPACT, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
 
 export function ListingMixStackedBar({
   rows,
+  height = CHART_HEIGHT_DEFAULT,
 }: {
   rows: DashAreaListingMixBySuburb[];
+  height?: number;
 }) {
   const data = rows.map((r) => {
     const entry: Record<string, string | number> = { suburb: r.suburb };
@@ -32,7 +34,7 @@ export function ListingMixStackedBar({
   });
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ChartViewport height={height}>
       <BarChart
         data={data}
         layout="vertical"
@@ -40,9 +42,19 @@ export function ListingMixStackedBar({
       >
         <CartesianGrid {...CHART_GRID} horizontal={false} />
         <XAxis type="number" {...CHART_AXIS} />
-        <YAxis type="category" dataKey="suburb" {...CHART_AXIS} width={72} tick={{ fill: CHART_AXIS.tick.fill, fontSize: 10 }} />
+        <YAxis
+          type="category"
+          dataKey="suburb"
+          {...CHART_AXIS}
+          width={72}
+          tick={{ fill: CHART_AXIS.tick.fill, fontSize: 10 }}
+        />
         <Tooltip {...CHART_TOOLTIP} />
-        <Legend {...CHART_LEGEND} wrapperStyle={{ ...CHART_LEGEND.wrapperStyle, fontSize: 10 }} iconSize={8} />
+        <Legend
+          {...CHART_LEGEND}
+          wrapperStyle={{ ...CHART_LEGEND.wrapperStyle, fontSize: 10 }}
+          iconSize={8}
+        />
         {LISTING_MIX_FIELDS.map((field, i) => (
           <Bar
             key={field}
@@ -55,6 +67,6 @@ export function ListingMixStackedBar({
           />
         ))}
       </BarChart>
-    </ResponsiveContainer>
+    </ChartViewport>
   );
 }

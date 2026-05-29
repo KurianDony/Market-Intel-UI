@@ -1,15 +1,22 @@
 "use client";
 
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Legend, Pie, PieChart, Tooltip } from "recharts";
 import type { DashAreaListingMix } from "@/lib/types/dash";
 import { listingMixSlice } from "@/lib/dash/listing-mix";
 import { CHART_LEGEND, CHART_PIE_STROKE, CHART_TOOLTIP } from "./chart-theme";
+import { ChartViewport, CHART_HEIGHT_COMPACT, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
 
-export function ListingMixDonut({ mix }: { mix: DashAreaListingMix }) {
+export function ListingMixDonut({
+  mix,
+  height = CHART_HEIGHT_DEFAULT,
+}: {
+  mix: DashAreaListingMix;
+  height?: number;
+}) {
   const slices = listingMixSlice(mix).filter((s) => s.value > 0);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ChartViewport height={height}>
       <PieChart>
         <Pie
           data={slices}
@@ -17,8 +24,8 @@ export function ListingMixDonut({ mix }: { mix: DashAreaListingMix }) {
           nameKey="label"
           cx="38%"
           cy="50%"
-          innerRadius={28}
-          outerRadius={44}
+          innerRadius={height <= CHART_HEIGHT_COMPACT ? 28 : 55}
+          outerRadius={height <= CHART_HEIGHT_COMPACT ? 44 : 85}
           stroke={CHART_PIE_STROKE}
           strokeWidth={1.5}
           isAnimationActive={false}
@@ -37,6 +44,6 @@ export function ListingMixDonut({ mix }: { mix: DashAreaListingMix }) {
           iconSize={8}
         />
       </PieChart>
-    </ResponsiveContainer>
+    </ChartViewport>
   );
 }

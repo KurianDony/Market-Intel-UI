@@ -4,7 +4,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -16,6 +15,7 @@ import {
   CHART_TOOLTIP,
   chartBarStyle,
 } from "./chart-theme";
+import { ChartViewport, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
 
 export type HistogramBar = {
   band_ord: number;
@@ -24,7 +24,13 @@ export type HistogramBar = {
 };
 
 /** Equal category width per band_ord — not proportional to width_hint. */
-export function HistogramChart({ bars }: { bars: HistogramBar[] }) {
+export function HistogramChart({
+  bars,
+  height = CHART_HEIGHT_DEFAULT,
+}: {
+  bars: HistogramBar[];
+  height?: number;
+}) {
   const data = bars.map((b) => ({
     ord: b.band_ord,
     label: b.band_label,
@@ -32,7 +38,7 @@ export function HistogramChart({ bars }: { bars: HistogramBar[] }) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ChartViewport height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 48 }}>
         <CartesianGrid {...CHART_GRID} vertical={false} />
         <XAxis
@@ -58,6 +64,6 @@ export function HistogramChart({ bars }: { bars: HistogramBar[] }) {
           isAnimationActive={false}
         />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartViewport>
   );
 }

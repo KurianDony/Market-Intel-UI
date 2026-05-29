@@ -9,6 +9,7 @@ import { SupplyPercentileChart } from "@/components/dashboard/charts/SupplyPerce
 import { ListingMixDonut } from "@/components/dashboard/charts/ListingMixDonut";
 import { HistogramChart } from "@/components/dashboard/charts/HistogramChart";
 import { ListingMixStackedBar } from "@/components/dashboard/charts/ListingMixStackedBar";
+import { CHART_HEIGHT_COMPACT } from "@/components/dashboard/charts/ChartViewport";
 import { fetchAreaPageData } from "@/lib/dash/queries";
 import {
   formatCount,
@@ -83,7 +84,7 @@ export async function AreaDashboardContent({ params }: Props) {
         </DashboardCard>
         <DashboardCard title="Listing Type Mix" subtitle="aggregate · all suburbs in area" compact>
           {listingMix ? (
-            <ListingMixDonut mix={listingMix} />
+            <ListingMixDonut mix={listingMix} height={CHART_HEIGHT_COMPACT} />
           ) : (
             <p className="text-sm" style={{ color: INK_60 }}>
               No listing mix data for this snapshot.
@@ -105,7 +106,7 @@ export async function AreaDashboardContent({ params }: Props) {
           span={2}
           compact
         >
-          <ListingMixStackedBar rows={listingMixBySuburb} />
+          <ListingMixStackedBar rows={listingMixBySuburb} height={CHART_HEIGHT_COMPACT} />
         </DashboardCard>
       </div>
 

@@ -40,3 +40,4 @@
 | 2026-05-29 18:46 | C1 done | Deleted remote `motion-prototype-stable-baseline` — 0 commits outside g3-data-wireup (bcf7423…b494e10 confirmed). |
 | 2026-05-29 18:47 | C2 done | Added `npm run verify` (`next build`) + README pre-push gate for main / g3-data-wireup. |
 | 2026-05-29 19:10 | fix | Recharts marks: explicit hex series colours + style backup + CSS fallback (undefined INK_* / currentColor). |
+| 2026-05-29 19:29 | fix | ChartViewport: mount gate + numeric ResponsiveContainer height — charts paint on first load without resize. |

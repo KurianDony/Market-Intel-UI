@@ -6,7 +6,6 @@ import {
   ComposedChart,
   Legend,
   Line,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -23,11 +22,14 @@ import {
   chartAreaBandStyle,
   chartLinePrimaryStyle,
 } from "./chart-theme";
+import { ChartViewport, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
 
 export function SupplyPercentileChart({
   rows,
+  height = CHART_HEIGHT_DEFAULT,
 }: {
   rows: DashAreaSupplyPercentileWeekly[];
+  height?: number;
 }) {
   const data = rows.map((r) => ({
     week: formatChartWeek(r.snapshot_date),
@@ -39,7 +41,7 @@ export function SupplyPercentileChart({
   }));
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ChartViewport height={height}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid {...CHART_GRID} vertical={false} />
         <XAxis dataKey="week" {...CHART_AXIS} />
@@ -91,6 +93,6 @@ export function SupplyPercentileChart({
           isAnimationActive={false}
         />
       </ComposedChart>
-    </ResponsiveContainer>
+    </ChartViewport>
   );
 }

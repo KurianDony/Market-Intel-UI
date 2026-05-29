@@ -5,7 +5,6 @@ import {
   Legend,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -22,8 +21,15 @@ import {
   chartLinePrimaryStyle,
   chartLineSecondaryStyle,
 } from "./chart-theme";
+import { ChartViewport, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
 
-export function SuburbTrendChart({ rows }: { rows: DashSuburbSummaryTrendRow[] }) {
+export function SuburbTrendChart({
+  rows,
+  height = CHART_HEIGHT_DEFAULT,
+}: {
+  rows: DashSuburbSummaryTrendRow[];
+  height?: number;
+}) {
   const data = rows.map((r) => ({
     week: formatChartWeek(r.snapshot_date),
     avg: r.avg_listing,
@@ -32,7 +38,7 @@ export function SuburbTrendChart({ rows }: { rows: DashSuburbSummaryTrendRow[] }
   }));
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ChartViewport height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid {...CHART_GRID} vertical={false} />
         <XAxis dataKey="week" {...CHART_AXIS} />
@@ -70,6 +76,6 @@ export function SuburbTrendChart({ rows }: { rows: DashSuburbSummaryTrendRow[] }
           isAnimationActive={false}
         />
       </LineChart>
-    </ResponsiveContainer>
+    </ChartViewport>
   );
 }
