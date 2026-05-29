@@ -1,10 +1,11 @@
 "use client";
 
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,7 +14,7 @@ import {
 import type { DashAreaSupplyPercentileWeekly } from "@/lib/types/dash";
 import { formatChartWeek } from "@/lib/dash/format";
 import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
-import { INK_60, INK_80, INK_100 } from "@/lib/palette/v2";
+import { INK_60, INK_100 } from "@/lib/palette/v2";
 
 export function SupplyPercentileChart({
   rows,
@@ -23,24 +24,63 @@ export function SupplyPercentileChart({
   const data = rows.map((r) => ({
     week: formatChartWeek(r.snapshot_date),
     p10: r.p10,
-    p30: r.p30,
     p50: r.p50,
     p70: r.p70,
+    bandBase: r.p10,
+    bandSpread: r.p70 != null && r.p10 != null ? r.p70 - r.p10 : null,
   }));
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid {...CHART_GRID} vertical={false} />
         <XAxis dataKey="week" {...CHART_AXIS} />
         <YAxis {...CHART_AXIS} tickFormatter={(v) => `$${v}`} width={48} />
-        <Tooltip {...CHART_TOOLTIP} formatter={(v: number) => [`$${v}`, ""]} />
-        <Legend {...CHART_LEGEND} />
-        <Line type="monotone" dataKey="p10" name="p10" stroke={INK_60} dot={{ r: 2 }} strokeWidth={1} />
-        <Line type="monotone" dataKey="p30" name="p30" stroke="#999999" dot={{ r: 2 }} strokeWidth={1} />
-        <Line type="monotone" dataKey="p50" name="p50" stroke={INK_100} dot={{ r: 3 }} strokeWidth={2} />
-        <Line type="monotone" dataKey="p70" name="p70" stroke={INK_80} dot={{ r: 2 }} strokeWidth={1} />
-      </LineChart>
+        <Tooltip
+          {...CHART_TOOLTIP}
+          formatter={(v: number, name: string) => {
+            if (name === "bandSpread" || name === "bandBase") return null;
+            return [`$${v}`, name === "p50" ? "Median (p50)" : name];
+          }}
+          labelFormatter={(label) => label}
+        />
+        <Legend
+          {...CHART_LEGEND}
+          formatter={(value) => {
+            if (value === "bandSpread") return "p10–p70 range";
+            if (value === "p50") return "Median (p50)";
+            return value;
+          }}
+        />
+        <Area
+          type="monotone"
+          dataKey="bandBase"
+          stackId="band"
+          stroke="none"
+          fill="transparent"
+          legendType="none"
+          isAnimationActive={false}
+        />
+        <Area
+          type="monotone"
+          dataKey="bandSpread"
+          name="bandSpread"
+          stackId="band"
+          stroke="none"
+          fill={INK_60}
+          fillOpacity={0.35}
+          isAnimationActive={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="p50"
+          name="p50"
+          stroke={INK_100}
+          dot={{ r: 3 }}
+          strokeWidth={2}
+          isAnimationActive={false}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
