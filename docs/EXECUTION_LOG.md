@@ -34,3 +34,4 @@
 | 2026-05-16 | P1.x v2 scaffold | `/v2` duplicates motion prototype via `motion-v2/*V2.tsx` + `lib/palette/v2.ts` (passthrough to `components/motion/areaPalette.ts`). Cyberpunk originals untouched. `npm run build` clean — route `/v2` static prerendered. |
 | 2026-05-29 18:26 | T1 done | Weekly supply percentile chart: p10–p70 filled band + p50 median line (SupplyPercentileChart). |
 | 2026-05-29 18:27 | T2 done | Listing type mix: compact card height + smaller donut/stacked bar footprint. |
+| 2026-05-29 18:28 | T3 done | Area suburb leaderboard: client-side sort toggles (rank default, high→low metrics). |
