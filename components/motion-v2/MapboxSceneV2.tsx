@@ -16,6 +16,12 @@ export const NSW_STATE_BBOX: mapboxgl.LngLatBoundsLike = [150.50, -34.55, 151.95
 const SUBURB_PITCH = 35;
 const FLAT_PITCH = 0;
 
+/** Basemap mask at state level — white glow needs a near-black canvas underneath. */
+const STATE_DIM_OPACITY = 0.92;
+
+/** Lighter mask at area/suburb zoom — basemap context without washing out glow. */
+const AREA_DIM_OPACITY = 0.55;
+
 // Suburb paint expressions — clicked suburb gets the only fill.
 const SUBURB_FILL_MODE: mapboxgl.Expression = [
   "case", ["boolean", ["feature-state", "selected"], false], 0.30, 0,
@@ -140,6 +146,16 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
           });
           areaCountsRef.current = counts;
 
+          // ── State-level dim overlay — basemap silhouette only; glow reads on black.
+          map.addLayer({
+            id: "state-dim-overlay",
+            type: "background",
+            paint: {
+              "background-color": INK_0,
+              "background-opacity": STATE_DIM_OPACITY,
+            },
+          });
+
           // Pre-computed centroids: one label per suburb regardless of
           // Polygon vs MultiPolygon structure.
           const suburbCentroids: GeoJSON.FeatureCollection = {
@@ -254,6 +270,26 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             },
           });
 
+          // Custom stack z-order: dim → fills → glow halos → crisp outlines → labels.
+          const layerOrder = [
+            "state-dim-overlay",
+            "areas-fill",
+            "areas-outline-glow",
+            "areas-outline",
+            "areas-outline-active",
+            "suburbs-fill",
+            "suburbs-outline-glow",
+            "suburbs-outline",
+            "suburbs-label",
+          ];
+          for (let i = 0; i < layerOrder.length - 1; i++) {
+            const id = layerOrder[i];
+            const before = layerOrder[i + 1];
+            if (map.getLayer(id) && map.getLayer(before)) map.moveLayer(id, before);
+          }
+
+          setDimOverlay(map, STATE_DIM_OPACITY);
+
           // ── Hover: areas (state level) — feature-state + cursor banner + suburb count
           let hoveredAreaId: string | null = null;
           const countSuburbsForArea = (areaName: string) =>
@@ -352,6 +388,15 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
     function setLayerVis(map: mapboxgl.Map, id: string, visible: boolean) {
       if (!map.getLayer(id)) return;
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+    }
+    function setDimOverlay(map: mapboxgl.Map, opacity: number) {
+      if (!map.getLayer("state-dim-overlay")) return;
+      if (opacity <= 0) {
+        setLayerVis(map, "state-dim-overlay", false);
+        return;
+      }
+      setLayerVis(map, "state-dim-overlay", true);
+      map.setPaintProperty("state-dim-overlay", "background-opacity", opacity);
     }
     function setAreasVisible(map: mapboxgl.Map, visible: boolean) {
       ["areas-fill", "areas-outline-glow", "areas-outline"].forEach(id => setLayerVis(map, id, visible));
@@ -457,6 +502,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
           setSuburbsVisible(map, false);
           setActiveAreaDashed(map, null);
           setAreasVisible(map, true);
+          setDimOverlay(map, STATE_DIM_OPACITY);
         });
       },
 
@@ -486,6 +532,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
           setSuburbFilter(map, ["==", ["get", "area"], area.name]);
           setSuburbsPaintMode(map, "area");
           setSuburbsVisible(map, true);
+          setDimOverlay(map, AREA_DIM_OPACITY);
         });
       },
 
@@ -517,6 +564,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
         const bbox = geomBbox(feature.geometry as GeoJSON.Geometry);
         flyToBbox(map, bbox, { padding: 120, pitch: SUBURB_PITCH, duration: 1200 });
         enforcePitch(map, SUBURB_PITCH);
+        setDimOverlay(map, AREA_DIM_OPACITY);
       },
 
       upToArea(area) {
@@ -538,6 +586,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
 
         const bbox = geomBbox(feature.geometry as GeoJSON.Geometry);
         flyToBbox(map, bbox, { padding: 60, pitch: FLAT_PITCH, duration: 1200 });
+        setDimOverlay(map, AREA_DIM_OPACITY);
       },
 
       // QLD / TAS — single suburb showcase, basemap visible, no NSW chrome.
@@ -562,6 +611,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
 
         setAreasVisible(map, false);
         setActiveAreaDashed(map, null);
+        setDimOverlay(map, 0);
 
         setSuburbFilter(map, ["==", ["get", "slug"], suburb.slug]);
         setSuburbsPaintMode(map, "suburb");
