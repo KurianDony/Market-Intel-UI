@@ -31,6 +31,18 @@ function sortDescNullsLast(
   });
 }
 
+function sortByAreaRank(rows: DashAreaLeaderboard[]): DashAreaLeaderboard[] {
+  return [...rows].sort((a, b) => {
+    const ar = a.rank_in_area;
+    const br = b.rank_in_area;
+    if (ar == null && br == null) return a.suburb.localeCompare(b.suburb);
+    if (ar == null) return 1;
+    if (br == null) return -1;
+    if (ar !== br) return ar - br;
+    return a.suburb.localeCompare(b.suburb);
+  });
+}
+
 export function AreaLeaderboardTable({
   rows,
   stateSlug,
@@ -53,14 +65,7 @@ export function AreaLeaderboardTable({
       case "total_listings":
         return sortDescNullsLast(rows, (r) => r.total_listings);
       default:
-        return [...rows].sort((a, b) => {
-          const ar = a.rank_in_area;
-          const br = b.rank_in_area;
-          if (ar == null && br == null) return 0;
-          if (ar == null) return 1;
-          if (br == null) return -1;
-          return ar - br;
-        });
+        return sortByAreaRank(rows);
     }
   }, [rows, sortKey]);
 
@@ -102,27 +107,21 @@ export function AreaLeaderboardTable({
                     style={{ color: INK_60 }}
                   >
                     {h}
-                    {h === "Seekers" && (
-                      <span
-                        className="ml-1 border px-1 text-[9px] normal-case"
-                        style={{ borderColor: INK_60, color: INK_60 }}
-                      >
-                        no price
-                      </span>
-                    )}
                   </th>
                 ),
               )}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row) => (
+            {sorted.map((row, index) => (
               <tr
                 key={row.suburb_slug}
                 style={{ borderBottom: `1px solid ${INK_20}` }}
                 className="hover:bg-[#1a1a1a]"
               >
-                <td className="px-3 py-2.5 tabular-nums">{row.rank_in_area ?? "—"}</td>
+                <td className="px-3 py-2.5 tabular-nums">
+                  {sortKey === "rank" ? (row.rank_in_area ?? "—") : index + 1}
+                </td>
                 <td className="px-3 py-2.5">
                   <Link
                     href={`/v2/${stateSlug}/${areaSlug}/${row.suburb_slug}`}

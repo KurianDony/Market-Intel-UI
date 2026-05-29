@@ -25,7 +25,19 @@ export function ListingMixStackedBar({
   rows: DashAreaListingMixBySuburb[];
   height?: number;
 }) {
-  const data = rows.map((r) => {
+  const TOP_N_SUBURBS = 10;
+  const data = [...rows]
+    .sort((a, b) => {
+      const av = a.total_listings;
+      const bv = b.total_listings;
+      if (av == null && bv == null) return a.suburb.localeCompare(b.suburb);
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (av !== bv) return bv - av;
+      return a.suburb.localeCompare(b.suburb);
+    })
+    .slice(0, TOP_N_SUBURBS)
+    .map((r) => {
     const entry: Record<string, string | number> = { suburb: r.suburb };
     for (const f of LISTING_MIX_FIELDS) {
       entry[f] = r[f] ?? 0;
@@ -47,6 +59,7 @@ export function ListingMixStackedBar({
           dataKey="suburb"
           {...CHART_AXIS}
           width={72}
+          interval={0}
           tick={{ fill: CHART_AXIS.tick.fill, fontSize: 10 }}
         />
         <Tooltip {...CHART_TOOLTIP} />

@@ -106,6 +106,8 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       const map = new mapboxgl.Map({
         container: containerRef.current,
         style,
+        center: [151.21, -33.87],
+        zoom: 8.7,
         attributionControl: false,
         logoPosition: "bottom-left",
       });
@@ -119,6 +121,9 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
         // projection breaks fill polygon paint, and the saved center
         // hijacks failed camera fallbacks. Force mercator unconditionally.
         map.setProjection("mercator");
+        map.fitBounds(NSW_STATE_BBOX, { padding: 10, duration: 0, essential: true });
+        map.setPitch(FLAT_PITCH);
+        map.setBearing(0);
 
         Promise.all([
           fetch("/areas_smooth.geojson").then(r => r.json()),

@@ -27,10 +27,11 @@ export async function SuburbDashboardContent({ params }: Props) {
 
   const { summary, trend, histogram, longevityActive, longevityGone } = data;
   const postcode = summary.suburb_slug_pc.split("-").pop();
+  const suburbDisplayName = formatSuburbDisplayName(summary.suburb);
 
   return (
     <DashboardShell snapshotDate={formatSnapshotDate(summary.snapshot_date)}>
-      <h1 className="mb-1 text-[32px] font-bold tracking-tight">{summary.suburb.toUpperCase()}</h1>
+      <h1 className="mb-1 text-[32px] font-bold tracking-tight">{suburbDisplayName.toUpperCase()}</h1>
       <p className="mb-6 text-xs uppercase tracking-[0.15em]" style={{ color: INK_60 }}>
         {postcode} · {summary.area_slug.replace(/-/g, " ")} · {stateFromSlug(stateSlug)}
       </p>
@@ -51,12 +52,12 @@ export async function SuburbDashboardContent({ params }: Props) {
             wow: summary.wow_demand_ratio,
           },
           {
-            label: "Min · Max",
+            label: "G1 Ask Range",
             value:
               summary.min_price != null && summary.max_price != null
                 ? `${formatCurrency(summary.min_price)}·${formatCurrency(summary.max_price)}`
                 : "—",
-            sub: "range of listings",
+            sub: "min/max asking price (G1)",
             wow: summary.wow_min_price,
           },
           {
@@ -149,7 +150,7 @@ function LongevityTable({
           <th className="px-2 py-2 text-right text-[10px] uppercase tracking-widest" style={{ color: INK_60 }}>
             {mode === "active" ? "Rent" : "Last Rent"}
           </th>
-          <th className="px-2 py-2 text-right text-[10px] uppercase tracking-widest" style={{ color: INK_60 }}>Wks Active</th>
+          {/* TODO(g2_listings_history): re-enable weeks-active column once listing history is populated. */}
           <th className="px-2 py-2 text-left text-[10px] uppercase tracking-widest" style={{ color: INK_60 }}>
             {mode === "active" ? "Activated" : "Last Seen"}
           </th>
@@ -160,7 +161,6 @@ function LongevityTable({
           <tr key={row.listing_id} style={{ borderBottom: `1px solid ${INK_20}` }}>
             <td className="px-2 py-2 font-mono">{row.listing_id}</td>
             <td className="px-2 py-2 text-right tabular-nums">{formatCurrency(row.current_rent_pw)}</td>
-            <td className="px-2 py-2 text-right tabular-nums">{row.weeks_seen}</td>
             <td className="px-2 py-2">
               {mode === "active" ? (
                 formatActivatedAt(row.activated_at)
@@ -181,4 +181,10 @@ function LongevityTable({
       </tbody>
     </table>
   );
+}
+
+function formatSuburbDisplayName(name: string): string {
+  if (name.includes(" ")) return name;
+  if (!/[a-z][A-Z]/.test(name)) return name;
+  return name.replace(/([a-z])([A-Z])/g, "$1 $2");
 }

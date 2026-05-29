@@ -79,7 +79,7 @@ export function SupplyPercentileChart({
           stroke="none"
           fill={CHART_AREA_BAND_FILL}
           style={chartAreaBandStyle}
-          fillOpacity={0.35}
+          fillOpacity={0.55}
           isAnimationActive={false}
         />
         <Line

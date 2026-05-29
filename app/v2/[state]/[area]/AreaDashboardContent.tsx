@@ -104,9 +104,8 @@ export async function AreaDashboardContent({ params }: Props) {
           title="Listing Type Mix · per Suburb"
           subtitle="stacked bar · how composition varies inside the area"
           span={2}
-          compact
         >
-          <ListingMixStackedBar rows={listingMixBySuburb} height={CHART_HEIGHT_COMPACT} />
+          <ListingMixStackedBar rows={listingMixBySuburb} />
         </DashboardCard>
       </div>
 

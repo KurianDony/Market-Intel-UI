@@ -31,6 +31,14 @@ export function HistogramChart({
   bars: HistogramBar[];
   height?: number;
 }) {
+  if (bars.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm" style={{ color: CHART_AXIS.tick.fill }}>
+        No price-band data for this week.
+      </div>
+    );
+  }
+
   const data = bars.map((b) => ({
     ord: b.band_ord,
     label: b.band_label,
