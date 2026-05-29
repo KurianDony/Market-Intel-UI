@@ -1,4 +1,19 @@
-import { INK_10, INK_20, INK_60, INK_80, INK_100 } from "@/lib/palette/v2";
+import { INK_0, INK_10, INK_20, INK_60, INK_80, INK_100 } from "@/lib/palette/v2";
+
+/**
+ * Recharts series colours — literal hex for SVG fill/stroke attrs only.
+ * Do not use Tailwind classes on Bar/Line/Area/Pie; production + SVG won't pick them up.
+ */
+export const CHART_BAR_FILL = INK_100;
+export const CHART_LINE_PRIMARY = INK_100;
+export const CHART_LINE_SECONDARY = INK_60;
+export const CHART_AREA_BAND_FILL = INK_60;
+export const CHART_PIE_STROKE = INK_0;
+
+export const chartBarStyle = { fill: CHART_BAR_FILL } as const;
+export const chartLinePrimaryStyle = { stroke: CHART_LINE_PRIMARY } as const;
+export const chartLineSecondaryStyle = { stroke: CHART_LINE_SECONDARY } as const;
+export const chartAreaBandStyle = { fill: CHART_AREA_BAND_FILL } as const;
 
 export const CHART_AXIS = {
   stroke: INK_20,

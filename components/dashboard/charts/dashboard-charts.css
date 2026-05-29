@@ -1,0 +1,8 @@
+/**
+ * Fallback when Recharts omits fill (e.g. undefined palette import) — marks otherwise
+ * inherit light-theme currentColor and disappear on dark dashboard cards.
+ */
+main .recharts-surface path.recharts-rectangle:not([fill]),
+main .recharts-surface path.recharts-rectangle[fill=""] {
+  fill: #ffffff;
+}

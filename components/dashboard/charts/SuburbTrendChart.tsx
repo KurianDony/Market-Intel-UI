@@ -12,8 +12,16 @@ import {
 } from "recharts";
 import type { DashSuburbSummaryTrendRow } from "@/lib/types/dash";
 import { formatChartWeek } from "@/lib/dash/format";
-import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
-import { INK_60, INK_100 } from "@/lib/palette/v2";
+import {
+  CHART_AXIS,
+  CHART_GRID,
+  CHART_LEGEND,
+  CHART_LINE_PRIMARY,
+  CHART_LINE_SECONDARY,
+  CHART_TOOLTIP,
+  chartLinePrimaryStyle,
+  chartLineSecondaryStyle,
+} from "./chart-theme";
 
 export function SuburbTrendChart({ rows }: { rows: DashSuburbSummaryTrendRow[] }) {
   const data = rows.map((r) => ({
@@ -31,9 +39,36 @@ export function SuburbTrendChart({ rows }: { rows: DashSuburbSummaryTrendRow[] }
         <YAxis {...CHART_AXIS} tickFormatter={(v) => `$${v}`} width={48} />
         <Tooltip {...CHART_TOOLTIP} formatter={(v: number) => [`$${v}`, ""]} />
         <Legend {...CHART_LEGEND} />
-        <Line type="monotone" dataKey="avg" name="Avg" stroke={INK_100} dot={{ r: 3 }} strokeWidth={2} />
-        <Line type="monotone" dataKey="min" name="Min" stroke={INK_60} dot={false} strokeDasharray="3 3" />
-        <Line type="monotone" dataKey="max" name="Max" stroke={INK_60} dot={false} strokeDasharray="3 3" />
+        <Line
+          type="monotone"
+          dataKey="avg"
+          name="Avg"
+          stroke={CHART_LINE_PRIMARY}
+          style={chartLinePrimaryStyle}
+          dot={{ r: 3, fill: CHART_LINE_PRIMARY, stroke: CHART_LINE_PRIMARY }}
+          strokeWidth={2}
+          isAnimationActive={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="min"
+          name="Min"
+          stroke={CHART_LINE_SECONDARY}
+          style={chartLineSecondaryStyle}
+          dot={false}
+          strokeDasharray="3 3"
+          isAnimationActive={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="max"
+          name="Max"
+          stroke={CHART_LINE_SECONDARY}
+          style={chartLineSecondaryStyle}
+          dot={false}
+          strokeDasharray="3 3"
+          isAnimationActive={false}
+        />
       </LineChart>
     </ResponsiveContainer>
   );

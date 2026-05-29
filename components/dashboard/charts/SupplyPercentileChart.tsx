@@ -13,8 +13,16 @@ import {
 } from "recharts";
 import type { DashAreaSupplyPercentileWeekly } from "@/lib/types/dash";
 import { formatChartWeek } from "@/lib/dash/format";
-import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
-import { INK_60, INK_100 } from "@/lib/palette/v2";
+import {
+  CHART_AREA_BAND_FILL,
+  CHART_AXIS,
+  CHART_GRID,
+  CHART_LEGEND,
+  CHART_LINE_PRIMARY,
+  CHART_TOOLTIP,
+  chartAreaBandStyle,
+  chartLinePrimaryStyle,
+} from "./chart-theme";
 
 export function SupplyPercentileChart({
   rows,
@@ -67,7 +75,8 @@ export function SupplyPercentileChart({
           name="bandSpread"
           stackId="band"
           stroke="none"
-          fill={INK_60}
+          fill={CHART_AREA_BAND_FILL}
+          style={chartAreaBandStyle}
           fillOpacity={0.35}
           isAnimationActive={false}
         />
@@ -75,8 +84,9 @@ export function SupplyPercentileChart({
           type="monotone"
           dataKey="p50"
           name="p50"
-          stroke={INK_100}
-          dot={{ r: 3 }}
+          stroke={CHART_LINE_PRIMARY}
+          style={chartLinePrimaryStyle}
+          dot={{ r: 3, fill: CHART_LINE_PRIMARY, stroke: CHART_LINE_PRIMARY }}
           strokeWidth={2}
           isAnimationActive={false}
         />

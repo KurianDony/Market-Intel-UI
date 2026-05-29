@@ -9,8 +9,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_AXIS, CHART_GRID, CHART_TOOLTIP } from "./chart-theme";
-import { INK_100 } from "@/lib/palette/v2";
+import {
+  CHART_AXIS,
+  CHART_BAR_FILL,
+  CHART_GRID,
+  CHART_TOOLTIP,
+  chartBarStyle,
+} from "./chart-theme";
 
 export type HistogramBar = {
   band_ord: number;
@@ -46,7 +51,12 @@ export function HistogramChart({ bars }: { bars: HistogramBar[] }) {
             payload?.[0]?.payload?.label ?? ""
           }
         />
-        <Bar dataKey="count" fill={INK_100} />
+        <Bar
+          dataKey="count"
+          fill={CHART_BAR_FILL}
+          style={chartBarStyle}
+          isAnimationActive={false}
+        />
       </BarChart>
     </ResponsiveContainer>
   );

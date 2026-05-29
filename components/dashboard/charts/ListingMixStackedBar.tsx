@@ -50,6 +50,8 @@ export function ListingMixStackedBar({
             name={LISTING_MIX_LABELS[field]}
             stackId="mix"
             fill={LISTING_MIX_COLORS[i]}
+            style={{ fill: LISTING_MIX_COLORS[i] }}
+            isAnimationActive={false}
           />
         ))}
       </BarChart>

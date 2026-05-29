@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { INK_0, INK_60, INK_100 } from "@/lib/palette/v2";
+import "./charts/dashboard-charts.css";
 
 export function DashboardShell({
   children,

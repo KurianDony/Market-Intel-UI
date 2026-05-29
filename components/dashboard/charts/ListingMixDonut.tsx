@@ -3,8 +3,7 @@
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { DashAreaListingMix } from "@/lib/types/dash";
 import { listingMixSlice } from "@/lib/dash/listing-mix";
-import { CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
-import { INK_0 } from "@/lib/palette/v2";
+import { CHART_LEGEND, CHART_PIE_STROKE, CHART_TOOLTIP } from "./chart-theme";
 
 export function ListingMixDonut({ mix }: { mix: DashAreaListingMix }) {
   const slices = listingMixSlice(mix).filter((s) => s.value > 0);
@@ -20,11 +19,12 @@ export function ListingMixDonut({ mix }: { mix: DashAreaListingMix }) {
           cy="50%"
           innerRadius={28}
           outerRadius={44}
-          stroke={INK_0}
+          stroke={CHART_PIE_STROKE}
           strokeWidth={1.5}
+          isAnimationActive={false}
         >
           {slices.map((s) => (
-            <Cell key={s.field} fill={s.color} />
+            <Cell key={s.field} fill={s.color} style={{ fill: s.color }} />
           ))}
         </Pie>
         <Tooltip {...CHART_TOOLTIP} />

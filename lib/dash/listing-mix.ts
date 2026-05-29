@@ -27,8 +27,8 @@ export const LISTING_MIX_COLORS = [
   "#888888",
   "#666666",
   "#444444",
-  "#2a2a2a",
-  "#1a1a1a",
+  "#333333",
+  "#555555",
 ] as const;
 
 export function listingMixSlice(
