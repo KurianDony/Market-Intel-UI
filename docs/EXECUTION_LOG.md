@@ -35,3 +35,4 @@
 | 2026-05-29 18:26 | T1 done | Weekly supply percentile chart: p10–p70 filled band + p50 median line (SupplyPercentileChart). |
 | 2026-05-29 18:27 | T2 done | Listing type mix: compact card height + smaller donut/stacked bar footprint. |
 | 2026-05-29 18:28 | T3 done | Area suburb leaderboard: client-side sort toggles (rank default, high→low metrics). |
+| 2026-05-29 18:28 | T4 done | Suburb dashboard: removed Supply vs Demand panel (chart deleted; fetch unchanged). |

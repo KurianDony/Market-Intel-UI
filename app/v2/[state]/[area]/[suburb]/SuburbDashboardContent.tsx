@@ -6,7 +6,6 @@ import { StatStrip } from "@/components/dashboard/StatStrip";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { HistogramChart } from "@/components/dashboard/charts/HistogramChart";
 import { SuburbTrendChart } from "@/components/dashboard/charts/SuburbTrendChart";
-import { SupplyDemandChart } from "@/components/dashboard/charts/SupplyDemandChart";
 import { fetchSuburbPageData } from "@/lib/dash/queries";
 import {
   formatActivatedAt,
@@ -81,15 +80,6 @@ export async function SuburbDashboardContent({ params }: Props) {
         </DashboardCard>
         <DashboardCard title="Avg Listing Trend" subtitle={`supply · ${trend.length} weeks · min/max bands`}>
           <SuburbTrendChart rows={trend} />
-        </DashboardCard>
-      </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-6">
-        <DashboardCard
-          title="Supply vs Demand"
-          subtitle="total_listings · active_rooms · demand_ratio"
-        >
-          <SupplyDemandChart rows={trend} />
         </DashboardCard>
       </div>
 
