@@ -1,5 +1,7 @@
 import { INK_40, INK_60, INK_100 } from "@/lib/palette/v2";
 
+const LABELS: Record<string, string> = { NO_DATA: "LOW VOL" };
+
 export function ClassificationPill({
   classification,
 }: {
@@ -16,7 +18,7 @@ export function ClassificationPill({
         color: hot ? INK_100 : cool ? INK_40 : INK_60,
       }}
     >
-      {classification.replace("_", " ")}
+      {LABELS[classification] ?? classification.replace("_", " ")}
     </span>
   );
 }

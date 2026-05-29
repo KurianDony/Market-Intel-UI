@@ -43,3 +43,4 @@
 | 2026-05-29 19:29 | fix | ChartViewport: mount gate + numeric ResponsiveContainer height — charts paint on first load without resize. |
 | 2026-05-29 20:05 | fix | ChartViewport: drop ResponsiveContainer; ref + ResizeObserver → explicit chart width/height (first-paint fix). |
 | 2026-05-29 21:15 | fix | M1-M8 UI audit pass: NSW map init+drill, leaderboard numbering, top-10 suburb mix, naming/range/empty-state copy, longevity column hide, supply band opacity. |
+| 2026-05-29 21:30 | fix | ClassificationPill: display NO_DATA as LOW VOL (demand ungauged when supply < 2). |
