@@ -20,7 +20,7 @@ export function DashboardShell({
       >
         <div className="flex items-baseline gap-4">
           <Link
-            href="/v2"
+            href="/"
             className="font-mono text-lg font-bold tracking-[0.1em] hover:opacity-80"
           >
             MARKET MEERKAT

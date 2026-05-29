@@ -46,3 +46,4 @@
 | 2026-05-29 21:30 | fix | ClassificationPill: display NO_DATA as LOW VOL (demand ungauged when supply < 2). |
 | 2026-05-29 22:10 | fix | useMeasuredWidth + ChartViewport: ResizeObserver-driven width, placeholder until width>0, explicit Recharts dimensions (first-paint reliability). |
 | 2026-05-29 22:25 | feat | Redirect `/` → `/v2`; root metadata title "Market Meerkat". |
+| 2026-05-29 23:00 | refactor | Drop `/v2` URL prefix — `app/(app)` route group at `/`, `[state]/[area]`, `[suburb]`; permanent `/v2` redirects. |

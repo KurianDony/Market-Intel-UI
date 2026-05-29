@@ -111,13 +111,13 @@ export async function SuburbDashboardContent({ params }: Props) {
 
       <p className="mt-8 flex gap-6">
         <Link
-          href={`/v2/${stateSlug}/${areaSlug}`}
+          href={`/${stateSlug}/${areaSlug}`}
           className="text-xs uppercase tracking-widest hover:underline"
           style={{ color: INK_60 }}
         >
           ← Area dashboard
         </Link>
-        <Link href="/v2" className="text-xs uppercase tracking-widest hover:underline" style={{ color: INK_60 }}>
+        <Link href="/" className="text-xs uppercase tracking-widest hover:underline" style={{ color: INK_60 }}>
           ← Back to map
         </Link>
       </p>

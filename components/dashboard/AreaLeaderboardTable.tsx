@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DashAreaLeaderboard } from "@/lib/types/dash";
 import { formatCount, formatCurrency, formatRatio } from "@/lib/dash/format";
+import { stateFromSlug, suburbDashboardHref } from "@/lib/dash/slugs";
 import { ClassificationPill } from "@/components/dashboard/ClassificationPill";
 import { INK_20, INK_60, INK_100 } from "@/lib/palette/v2";
 
@@ -124,7 +125,7 @@ export function AreaLeaderboardTable({
                 </td>
                 <td className="px-3 py-2.5">
                   <Link
-                    href={`/v2/${stateSlug}/${areaSlug}/${row.suburb_slug}`}
+                    href={suburbDashboardHref(stateFromSlug(stateSlug), areaSlug, row.suburb_slug)}
                     className="font-medium hover:underline"
                   >
                     {row.suburb}

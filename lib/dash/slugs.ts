@@ -22,7 +22,7 @@ export function areaDashboardHref(state: string, areaNameOrSlug: string): string
   const areaSlug = areaNameOrSlug.includes(" ")
     ? slugifyName(areaNameOrSlug)
     : areaNameOrSlug;
-  return `/v2/${stateSlug}/${areaSlug}`;
+  return `/${stateSlug}/${areaSlug}`;
 }
 
 export function suburbDashboardHref(

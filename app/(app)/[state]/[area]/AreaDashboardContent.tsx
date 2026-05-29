@@ -110,7 +110,7 @@ export async function AreaDashboardContent({ params }: Props) {
       </div>
 
       <p className="mt-8">
-        <Link href="/v2" className="text-xs uppercase tracking-widest hover:underline" style={{ color: INK_60 }}>
+        <Link href="/" className="text-xs uppercase tracking-widest hover:underline" style={{ color: INK_60 }}>
           ← Back to map
         </Link>
       </p>
