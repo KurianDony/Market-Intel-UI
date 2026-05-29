@@ -98,6 +98,16 @@ If you wish to just develop locally and not deploy to Vercel, [follow the steps 
 
 > Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
 
+## Before you push
+
+Run a production build check before pushing to **`main`** or **`g3-data-wireup`**:
+
+```bash
+npm run verify
+```
+
+`verify` runs `next build` (Next.js 16 Turbopack + TypeScript). It must pass locally — this catches missing exports, type errors, and other build failures before Vercel deploys.
+
 ## Feedback and issues
 
 Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).

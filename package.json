@@ -3,6 +3,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "verify": "next build",
     "start": "next start",
     "lint": "eslint ."
   },

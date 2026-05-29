@@ -38,3 +38,4 @@
 | 2026-05-29 18:28 | T4 done | Suburb dashboard: removed Supply vs Demand panel (chart deleted; fetch unchanged). |
 | 2026-05-29 18:35 | T5 done | Fast-forward merged g3-data-wireup → main; production deploy triggered on Vercel. |
 | 2026-05-29 18:46 | C1 done | Deleted remote `motion-prototype-stable-baseline` — 0 commits outside g3-data-wireup (bcf7423…b494e10 confirmed). |
+| 2026-05-29 18:47 | C2 done | Added `npm run verify` (`next build`) + README pre-push gate for main / g3-data-wireup. |
