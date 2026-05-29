@@ -4,7 +4,7 @@ import { IntroSplashV2 } from "@/components/motion-v2/IntroSplashV2";
 import { MotionPrototypeV2 } from "@/components/motion-v2/MotionPrototypeV2";
 
 export const metadata: Metadata = {
-  title: "Motion Prototype — Market Intel",
+  title: "Market Meerkat",
   robots: { index: false, follow: false },
 };
 
