@@ -48,3 +48,4 @@
 | 2026-05-29 22:25 | feat | Redirect `/` → `/v2`; root metadata title "Market Meerkat". |
 | 2026-05-29 23:00 | refactor | Drop `/v2` URL prefix — `app/(app)` route group at `/`, `[state]/[area]`, `[suburb]`; permanent `/v2` redirects. |
 | 2026-05-29 23:20 | fix | MapboxSceneV2: restore state-dim-overlay + layer z-order; toggle dim at state/area drill (white glow on dark canvas). |
+| 2026-05-29 23:45 | fix | MapboxSceneV2: remove global dim overlay; white-glow area+suburb outlines on normal basemap (layer order + fill-outline fix). |
