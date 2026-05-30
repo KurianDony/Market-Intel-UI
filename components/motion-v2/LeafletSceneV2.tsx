@@ -44,10 +44,13 @@ const AREA_BASE: L.PathOptions = {
   fillOpacity: 0.08,
 };
 
-/** State view — explicit dash clear (Leaflet merges setStyle; drill dash can stick). */
+/** Leaflet clears dash only when dashArray is null (undefined is ignored on merge). */
+const DASH_CLEAR = null as unknown as L.PathOptions["dashArray"];
+
+/** State view — solid outline, no drill dash. */
 const AREA_STATE_SOLID: L.PathOptions = {
   ...AREA_BASE,
-  dashArray: undefined,
+  dashArray: DASH_CLEAR,
 };
 
 const SUBURB_BASE: L.PathOptions = {
@@ -136,6 +139,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     const svgRendererRef = useRef<L.Renderer | null>(null);
     const isZoomingRef = useRef(false);
     const areasFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
+    const nswAreasFeaturesRef = useRef<GeoJSON.Feature[]>([]);
     const suburbsFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
     const areaCountsRef = useRef<Record<string, number>>({});
     const levelRef = useRef<"state" | "area" | "suburb">("state");
@@ -209,7 +213,20 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         mapMotionDepthRef.current = 0;
         mapMotionEndTimerRef.current = null;
         setMapZooming(false);
-        restorePathGlows();
+        if (levelRef.current === "state") {
+          activeAreaNameRef.current = null;
+          refreshAreaLayers();
+          requestAnimationFrame(() => {
+            refreshAreaLayers();
+            const map = mapRef.current;
+            if (map && areaPathsStillDashed()) {
+              recreateAreaLayerAtState(map);
+            }
+            restorePathGlows();
+          });
+        } else {
+          restorePathGlows();
+        }
       }, MOTION_SETTLE_MS);
     }
 
@@ -232,21 +249,134 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       activeArea: string | null,
     ): L.PathOptions {
       const name = (feature.properties as { name: string }).name;
-      if (level === "state") return { ...AREA_STATE_SOLID };
+      if (level === "state") return { ...AREA_STATE_SOLID, dashArray: DASH_CLEAR };
       if (name === activeArea) return { ...ACTIVE_AREA_OUTLINE };
       return { ...HIDDEN_AREA };
     }
 
-    function resetAreaPathToStateSolid(
-      pathLayer: L.Path,
-      path: SVGPathElement | undefined,
-    ) {
-      pathLayer.setStyle({ ...AREA_STATE_SOLID });
-      pathLayer.options.dashArray = undefined;
+    function resetAreaPathToStateSolid(pathLayer: L.Path) {
+      pathLayer.setStyle({ ...AREA_STATE_SOLID, dashArray: DASH_CLEAR });
+      pathLayer.options.dashArray = DASH_CLEAR;
+      const path = pathLayer.getElement?.() as SVGPathElement | undefined;
       if (path) {
-        path.style.strokeDasharray = "";
+        path.style.strokeDasharray = "none";
         path.removeAttribute("stroke-dasharray");
       }
+    }
+
+    function areaPathsStillDashed(): boolean {
+      const group = areaLayerRef.current;
+      if (!group) return false;
+      let dashed = false;
+      group.eachLayer(layer => {
+        const path = (layer as L.Path).getElement?.() as SVGPathElement | undefined;
+        if (!path) return;
+        const attr = path.getAttribute("stroke-dasharray");
+        const style = path.style.strokeDasharray;
+        const computed = getComputedStyle(path).strokeDasharray;
+        const hasDash =
+          (attr && attr !== "none" && attr !== "0") ||
+          (style && style !== "none" && style !== "") ||
+          (computed && computed !== "none" && computed !== "0px");
+        if (hasDash) dashed = true;
+      });
+      return dashed;
+    }
+
+    function bindAreaLayerFeature(
+      feat: GeoJSON.Feature,
+      layer: L.Layer,
+      counts: Record<string, number>,
+    ) {
+      const pathLayer = layer as L.Path;
+      const areaName = (feat.properties as { name: string }).name;
+
+      layer.on("add", () => {
+        const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+        if (path) {
+          path.classList.add("area-tile");
+          path.dataset.area = areaName;
+          if (levelRef.current === "state") {
+            resetAreaPathToStateSolid(pathLayer);
+            path.style.filter = isZoomingRef.current ? "none" : GLOW;
+          } else {
+            path.style.filter = GLOW;
+          }
+        }
+      });
+
+      layer.on("mouseover", e => {
+        if (levelRef.current !== "state") return;
+        pathLayer.setStyle({
+          ...AREA_BASE,
+          fillOpacity: 0.3,
+          weight: 5,
+          dashArray: DASH_CLEAR,
+        });
+        const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+        if (path) path.classList.add("lifted");
+        applyGlow(path, true);
+        const oe = e.originalEvent as MouseEvent;
+        setAreaHoverTooltip({
+          pageX: oe.pageX + 14,
+          pageY: oe.pageY - 12,
+          name: areaName,
+          count: counts[areaName] ?? 0,
+        });
+      });
+
+      layer.on("mousemove", e => {
+        if (levelRef.current !== "state") return;
+        const oe = e.originalEvent as MouseEvent;
+        setAreaHoverTooltip(prev =>
+          prev ? { ...prev, pageX: oe.pageX + 14, pageY: oe.pageY - 12 } : null,
+        );
+      });
+
+      layer.on("mouseout", () => {
+        if (levelRef.current !== "state") return;
+        resetAreaPathToStateSolid(pathLayer);
+        const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+        if (path) path.classList.remove("lifted");
+        applyGlow(path, false);
+        setAreaHoverTooltip(null);
+      });
+
+      layer.on("click", () => {
+        if (levelRef.current !== "state") return;
+        const p = feat.properties as { name: string; slug: string };
+        onAreaClickRef.current(propsToArea(p));
+      });
+    }
+
+    function createAreaLayer(map: L.Map): L.GeoJSON {
+      const svgRenderer = svgRendererRef.current;
+      const features = nswAreasFeaturesRef.current;
+      const counts = areaCountsRef.current;
+      if (!svgRenderer || features.length === 0) {
+        throw new Error("[LeafletSceneV2] cannot create area layer before GeoJSON load");
+      }
+      return L.geoJSON(features, {
+        ...({
+          renderer: svgRenderer,
+          smoothFactor: GEO_SMOOTH_FACTOR,
+        } as L.GeoJSONOptions),
+        style: () => ({ ...AREA_STATE_SOLID, dashArray: DASH_CLEAR }),
+        onEachFeature: (f, layer) =>
+          bindAreaLayerFeature(f as GeoJSON.Feature, layer, counts),
+      });
+    }
+
+    function recreateAreaLayerAtState(map: L.Map) {
+      if (!nswAreasFeaturesRef.current.length) return;
+      if (areaLayerRef.current) {
+        map.removeLayer(areaLayerRef.current);
+        areaLayerRef.current = null;
+      }
+      const layer = createAreaLayer(map);
+      layer.addTo(map);
+      areaLayerRef.current = layer;
+      refreshAreaLayers();
     }
 
     function suburbLabelIcon(name: string, prominent = false): L.DivIcon {
@@ -498,7 +628,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         const path = pathLayer.getElement?.() as SVGPathElement | undefined;
 
         if (level === "state") {
-          resetAreaPathToStateSolid(pathLayer, path);
+          resetAreaPathToStateSolid(pathLayer);
           pathLayer.options.interactive = true;
           if (path) {
             path.style.pointerEvents = "";
@@ -582,76 +712,15 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
             });
             areaCountsRef.current = counts;
 
-            const nswAreas = areasData.features.filter(
+            nswAreasFeaturesRef.current = areasData.features.filter(
               f =>
                 !EXCLUDED_NSW_AREAS.has(
                   (f.properties as { name: string }).name,
                 ),
-            );
+            ) as GeoJSON.Feature[];
 
-            areaLayerRef.current = L.geoJSON(nswAreas as GeoJSON.Feature[], {
-              ...({
-                renderer: svgRenderer,
-                smoothFactor: GEO_SMOOTH_FACTOR,
-              } as L.GeoJSONOptions),
-              style: f => areaStyle(f as GeoJSON.Feature, "state", null),
-              onEachFeature: (f, layer) => {
-                const feat = f as GeoJSON.Feature;
-                const pathLayer = layer as L.Path;
-                const areaName = (feat.properties as { name: string }).name;
-
-                layer.on("add", () => {
-                  const path = pathLayer.getElement?.() as
-                    | SVGPathElement
-                    | undefined;
-                  if (path) {
-                    path.classList.add("area-tile");
-                    path.dataset.area = areaName;
-                    path.style.filter = GLOW;
-                  }
-                });
-
-                layer.on("mouseover", e => {
-                  if (levelRef.current !== "state") return;
-                  pathLayer.setStyle({ ...AREA_BASE, fillOpacity: 0.3, weight: 5 });
-                  const path = pathLayer.getElement?.() as SVGPathElement | undefined;
-                  if (path) path.classList.add("lifted");
-                  applyGlow(path, true);
-                  const oe = e.originalEvent as MouseEvent;
-                  setAreaHoverTooltip({
-                    pageX: oe.pageX + 14,
-                    pageY: oe.pageY - 12,
-                    name: areaName,
-                    count: counts[areaName] ?? 0,
-                  });
-                });
-
-                layer.on("mousemove", e => {
-                  if (levelRef.current !== "state") return;
-                  const oe = e.originalEvent as MouseEvent;
-                  setAreaHoverTooltip(prev =>
-                    prev
-                      ? { ...prev, pageX: oe.pageX + 14, pageY: oe.pageY - 12 }
-                      : null,
-                  );
-                });
-
-                layer.on("mouseout", () => {
-                  if (levelRef.current !== "state") return;
-                  pathLayer.setStyle({ ...AREA_BASE });
-                  const path = pathLayer.getElement?.() as SVGPathElement | undefined;
-                  if (path) path.classList.remove("lifted");
-                  applyGlow(path, false);
-                  setAreaHoverTooltip(null);
-                });
-
-                layer.on("click", () => {
-                  if (levelRef.current !== "state") return;
-                  const p = feat.properties as { name: string; slug: string };
-                  onAreaClickRef.current(propsToArea(p));
-                });
-              },
-            }).addTo(map);
+            areaLayerRef.current = createAreaLayer(map);
+            areaLayerRef.current.addTo(map);
           },
         )
         .catch(err => console.error("[LeafletSceneV2] GeoJSON error:", err));
@@ -689,10 +758,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         activeAreaNameRef.current = null;
         activeSuburbSlugRef.current = null;
         clearSuburbLayer(map);
-        if (areaLayerRef.current && !map.hasLayer(areaLayerRef.current)) {
-          areaLayerRef.current.addTo(map);
-        }
-        refreshAreaLayers();
+        recreateAreaLayerAtState(map);
         map.flyToBounds(STATE_BOUNDS.NSW, {
           padding: [10, 10],
           duration: 1.4,
