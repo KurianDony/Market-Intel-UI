@@ -66,10 +66,10 @@ const FOCUS_FLY_PADDING: [number, number] = [40, 40];
 
 const SUBURB_DIMMED: L.PathOptions = {
   color: WHITE,
-  weight: 0.8,
+  weight: 1,
   opacity: 0.12,
   fillColor: WHITE,
-  fillOpacity: 0,
+  fillOpacity: 0.01,
 };
 
 const SUBURB_FOCUSED: L.PathOptions = {
@@ -107,6 +107,8 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     const areaLayerRef = useRef<L.GeoJSON | null>(null);
     const suburbLayerRef = useRef<L.GeoJSON | null>(null);
     const suburbLabelLayerRef = useRef<L.LayerGroup | null>(null);
+    const svgRendererRef = useRef<L.Renderer | null>(null);
+    const isZoomingRef = useRef(false);
     const areasFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
     const suburbsFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
     const areaCountsRef = useRef<Record<string, number>>({});
@@ -136,6 +138,24 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       setAreaHoverTooltip(null);
       setSuburbHoverTooltip(null);
     };
+
+    function setMapZooming(zooming: boolean) {
+      isZoomingRef.current = zooming;
+      containerRef.current?.classList.toggle("is-zooming", zooming);
+    }
+
+    function stripPathGlows() {
+      containerRef.current
+        ?.querySelectorAll<SVGPathElement>(".area-tile, .suburb-tile")
+        .forEach(path => {
+          path.style.filter = "none";
+        });
+    }
+
+    function restorePathGlows() {
+      refreshAreaLayers();
+      refreshSuburbLayers();
+    }
 
     function areaStyle(
       feature: GeoJSON.Feature,
@@ -224,9 +244,11 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         f => (f.properties as { area: string }).area === areaName,
       );
 
+      const geoRenderer = svgRendererRef.current ?? undefined;
       suburbLayerRef.current = L.geoJSON(
         { type: "FeatureCollection", features: filtered } as GeoJSON.FeatureCollection,
         {
+          ...(geoRenderer ? ({ renderer: geoRenderer } as L.GeoJSONOptions) : {}),
           style: f =>
             suburbStyle(
               f as GeoJSON.Feature,
@@ -289,9 +311,17 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
               setSuburbHoverTooltip(null);
             });
             layer.on("click", () => {
-              if (levelRef.current !== "area") return;
               const p = feat.properties as Suburb;
-              onSuburbClickRef.current(propsToSuburb(p));
+              if (levelRef.current === "area") {
+                onSuburbClickRef.current(propsToSuburb(p));
+                return;
+              }
+              if (
+                levelRef.current === "suburb" &&
+                p.slug !== activeSuburbSlugRef.current
+              ) {
+                onSuburbClickRef.current(propsToSuburb(p));
+              }
             });
           },
         },
@@ -317,7 +347,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           pathLayer.options.interactive = true;
           if (path) {
             path.style.pointerEvents = "";
-            path.style.filter = GLOW;
+            path.style.filter = isZoomingRef.current ? "none" : GLOW;
           }
           return;
         }
@@ -327,17 +357,17 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           pathLayer.options.interactive = false;
           if (path) {
             path.style.pointerEvents = "none";
-            path.style.filter = GLOW_HOVER;
+            path.style.filter = isZoomingRef.current ? "none" : GLOW_HOVER;
           }
           return;
         }
 
         if (level === "suburb") {
           pathLayer.setStyle({ ...SUBURB_DIMMED });
-          pathLayer.options.interactive = false;
+          pathLayer.options.interactive = true;
           if (path) {
-            path.style.pointerEvents = "none";
-            path.style.filter = "none";
+            path.style.pointerEvents = "";
+            path.style.filter = isZoomingRef.current ? "none" : "none";
           }
         }
       });
@@ -362,7 +392,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           pathLayer.options.interactive = true;
           if (path) {
             path.style.pointerEvents = "";
-            path.style.filter = GLOW;
+            path.style.filter = isZoomingRef.current ? "none" : GLOW;
             path.style.visibility = "";
           }
           return;
@@ -392,17 +422,40 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     useEffect(() => {
       if (!containerRef.current || mapRef.current) return;
 
+      const svgRenderer = L.svg({ padding: 2 });
+      svgRendererRef.current = svgRenderer;
+
       const map = L.map(containerRef.current, {
-        zoomControl: true,
+        zoomControl: false,
         scrollWheelZoom: true,
         preferCanvas: false,
         zoomAnimation: true,
+        zoomAnimationThreshold: 4,
+        fadeAnimation: false,
       }).fitBounds(STATE_BOUNDS.NSW, { padding: [10, 10] });
+
+      L.control.zoom({ position: "bottomright" }).addTo(map);
 
       const tileLayer = L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        { subdomains: "abcd", maxZoom: 19 },
+        {
+          subdomains: "abcd",
+          maxZoom: 19,
+          updateWhenZooming: false,
+        },
       ).addTo(map);
+
+      const onZoomStart = () => {
+        setMapZooming(true);
+        stripPathGlows();
+      };
+      const onZoomEnd = () => {
+        setMapZooming(false);
+        restorePathGlows();
+      };
+      map.on("zoomstart", onZoomStart);
+      map.on("zoomend", onZoomEnd);
+      map.on("moveend", onZoomEnd);
 
       mapRef.current = map;
       tileLayerRef.current = tileLayer;
@@ -434,6 +487,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
             );
 
             areaLayerRef.current = L.geoJSON(nswAreas as GeoJSON.Feature[], {
+              ...( { renderer: svgRenderer } as L.GeoJSONOptions ),
               style: f => areaStyle(f as GeoJSON.Feature, "state", null),
               onEachFeature: (f, layer) => {
                 const feat = f as GeoJSON.Feature;
@@ -497,12 +551,16 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         .catch(err => console.error("[LeafletSceneV2] GeoJSON error:", err));
 
       return () => {
+        map.off("zoomstart", onZoomStart);
+        map.off("zoomend", onZoomEnd);
+        map.off("moveend", onZoomEnd);
         map.remove();
         mapRef.current = null;
         tileLayerRef.current = null;
         areaLayerRef.current = null;
         suburbLayerRef.current = null;
         suburbLabelLayerRef.current = null;
+        svgRendererRef.current = null;
         levelRef.current = "state";
         activeAreaNameRef.current = null;
         activeSuburbSlugRef.current = null;
@@ -644,6 +702,9 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         clearSuburbLayer(map);
 
         suburbLayerRef.current = L.geoJSON(feature, {
+          ...(svgRendererRef.current
+            ? ({ renderer: svgRendererRef.current } as L.GeoJSONOptions)
+            : {}),
           style: { ...SUBURB_FOCUSED },
           onEachFeature: (f, layer) => {
             layer.on("add", () => {

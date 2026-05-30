@@ -7,6 +7,29 @@
     fill-opacity 0.35s ease;
 }
 
+/* Suppress glow transitions during zoom — avoids dotting/raster artifacts */
+.leaflet-v2-map.is-zooming .leaflet-overlay-pane svg path.area-tile,
+.leaflet-v2-map.is-zooming .leaflet-overlay-pane svg path.suburb-tile {
+  transition: none !important;
+  filter: none !important;
+}
+
+.leaflet-v2-map .leaflet-control-zoom {
+  border: 1px solid #ffffff !important;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.leaflet-v2-map .leaflet-control-zoom a {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+.leaflet-v2-map .leaflet-control-zoom a:hover {
+  background: #1a1a1a !important;
+}
+
 .leaflet-v2-map .leaflet-overlay-pane svg path.area-tile.lifted {
   transform: translateY(-4px);
   transform-origin: center;

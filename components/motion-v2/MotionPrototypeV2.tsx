@@ -257,7 +257,7 @@ export function MotionPrototypeV2() {
 
 function StateToggle({ current, onChange }: { current: StateKey; onChange: (k: StateKey) => void }) {
   const states: { key: StateKey; label: string }[] = [
-    { key: "NSW", label: "New South Wales" },
+    { key: "NSW", label: "NSW" },
     { key: "QLD", label: "QLD" },
     { key: "TAS", label: "TAS" },
   ];

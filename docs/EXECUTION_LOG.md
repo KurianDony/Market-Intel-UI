@@ -55,3 +55,4 @@
 | 2026-05-30 12:00 | feat(map) | Port / map to Leaflet 1.9.4 + CartoDB dark basemap + SVG drop-shadow glow; drop MapboxSceneV2 from v2 route. |
 | 2026-05-30 13:00 | fix(map) | Hide non-active areas on drill; suburb divIcon labels; suburb-click zooms, See-data navigates. |
 | 2026-05-30 14:30 | fix(map) | Hover-only suburb labels; tight suburb-focus zoom + dim siblings; areas visibility:hidden when drilled. |
+| 2026-05-30 15:45 | fix(map) | Suburb re-focus (dim siblings stay clickable); suppress SVG glow during zoom; zoom bottom-right; NSW label. |
