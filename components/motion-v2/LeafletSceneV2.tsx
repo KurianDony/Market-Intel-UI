@@ -1,0 +1,582 @@
+"use client";
+
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "./leaflet-v2.css";
+import { INK_0, INK_100, INK_60 } from "@/lib/palette/v2";
+import {
+  EXCLUDED_NSW_AREAS,
+  type Area,
+  type LeafletSceneHandle,
+  type Suburb,
+} from "./types";
+
+export type { Area, Suburb, LeafletSceneHandle };
+
+export const NSW_BOUNDS: L.LatLngBoundsExpression = [
+  [-34.55, 150.5],
+  [-32.8, 151.95],
+];
+
+const STATE_BOUNDS = {
+  NSW: L.latLngBounds([-34.55, 150.5], [-32.8, 151.95]),
+  QLD: L.latLngBounds([-19.5, 146.55], [-19.1, 146.9]),
+  TAS: L.latLngBounds([-41.58, 146.95], [-41.3, 147.3]),
+};
+
+const WHITE = "#ffffff";
+const GLOW = "drop-shadow(0 0 6px rgba(255,255,255,0.6))";
+const GLOW_HOVER = "drop-shadow(0 0 12px rgba(255,255,255,0.85))";
+
+const AREA_BASE: L.PathOptions = {
+  color: WHITE,
+  weight: 3,
+  opacity: 1,
+  fillColor: WHITE,
+  fillOpacity: 0.08,
+};
+
+const SUBURB_BASE: L.PathOptions = {
+  color: WHITE,
+  weight: 1.6,
+  opacity: 0.9,
+  fillColor: WHITE,
+  fillOpacity: 0.12,
+};
+
+interface Props {
+  onAreaClick: (area: Area) => void;
+  onSuburbClick: (suburb: Suburb) => void;
+}
+
+function applyGlow(path: SVGPathElement | null | undefined, hover: boolean) {
+  if (!path) return;
+  path.style.filter = hover ? GLOW_HOVER : GLOW;
+  path.style.strokeWidth = hover ? "5" : "3";
+}
+
+function propsToArea(p: { name: string; slug: string }): Area {
+  return { name: p.name, slug: p.slug };
+}
+
+function propsToSuburb(p: Suburb): Suburb {
+  return p;
+}
+
+export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
+  function LeafletSceneV2({ onAreaClick, onSuburbClick }, ref) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<L.Map | null>(null);
+    const tileLayerRef = useRef<L.TileLayer | null>(null);
+    const areaLayerRef = useRef<L.GeoJSON | null>(null);
+    const suburbLayerRef = useRef<L.GeoJSON | null>(null);
+    const areasFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
+    const suburbsFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
+    const areaCountsRef = useRef<Record<string, number>>({});
+    const levelRef = useRef<"state" | "area" | "suburb">("state");
+    const activeAreaNameRef = useRef<string | null>(null);
+    const activeSuburbSlugRef = useRef<string | null>(null);
+
+    const onAreaClickRef = useRef(onAreaClick);
+    const onSuburbClickRef = useRef(onSuburbClick);
+    onAreaClickRef.current = onAreaClick;
+    onSuburbClickRef.current = onSuburbClick;
+
+    const [areaHoverTooltip, setAreaHoverTooltip] = useState<{
+      pageX: number;
+      pageY: number;
+      name: string;
+      count: number;
+    } | null>(null);
+
+    function areaStyle(
+      feature: GeoJSON.Feature,
+      level: "state" | "area" | "suburb",
+      activeArea: string | null,
+    ): L.PathOptions {
+      const name = (feature.properties as { name: string }).name;
+      if (level === "state") return { ...AREA_BASE };
+      if (name === activeArea) {
+        return {
+          color: WHITE,
+          weight: 2,
+          opacity: 0.7,
+          fillColor: WHITE,
+          fillOpacity: 0.04,
+          dashArray: "4 4",
+        };
+      }
+      return { opacity: 0, fillOpacity: 0, weight: 0 };
+    }
+
+    function suburbStyle(
+      feature: GeoJSON.Feature,
+      level: "state" | "area" | "suburb",
+      activeSlug: string | null,
+      hover: boolean,
+    ): L.PathOptions {
+      const slug = (feature.properties as { slug: string }).slug;
+      if (level === "area") {
+        if (hover) {
+          return {
+            color: WHITE,
+            weight: 2.6,
+            opacity: 1,
+            fillColor: WHITE,
+            fillOpacity: 0.3,
+          };
+        }
+        return { ...SUBURB_BASE };
+      }
+      if (level === "suburb" && slug === activeSlug) {
+        return {
+          color: WHITE,
+          weight: 3,
+          opacity: 1,
+          fillColor: WHITE,
+          fillOpacity: 0.35,
+        };
+      }
+      return {
+        color: WHITE,
+        weight: 0.8,
+        opacity: 0.4,
+        fillColor: WHITE,
+        fillOpacity: 0.06,
+      };
+    }
+
+    function clearSuburbLayer(map: L.Map) {
+      if (suburbLayerRef.current) {
+        map.removeLayer(suburbLayerRef.current);
+        suburbLayerRef.current = null;
+      }
+    }
+
+    function showSuburbsForArea(map: L.Map, areaName: string) {
+      clearSuburbLayer(map);
+      const fc = suburbsFCRef.current;
+      if (!fc) return;
+
+      const filtered = fc.features.filter(
+        f => (f.properties as { area: string }).area === areaName,
+      );
+
+      suburbLayerRef.current = L.geoJSON(
+        { type: "FeatureCollection", features: filtered } as GeoJSON.FeatureCollection,
+        {
+          style: f =>
+            suburbStyle(
+              f as GeoJSON.Feature,
+              levelRef.current,
+              activeSuburbSlugRef.current,
+              false,
+            ),
+          onEachFeature: (f, layer) => {
+            const feat = f as GeoJSON.Feature;
+            const pathLayer = layer as L.Path;
+            layer.on("add", () => {
+              const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+              if (path) {
+                path.classList.add("suburb-tile");
+                path.style.filter = GLOW;
+              }
+            });
+            layer.on("mouseover", () => {
+              if (levelRef.current !== "area") return;
+              pathLayer.setStyle(
+                suburbStyle(
+                  feat,
+                  "area",
+                  activeSuburbSlugRef.current,
+                  true,
+                ),
+              );
+              const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+              applyGlow(path, true);
+            });
+            layer.on("mouseout", () => {
+              if (levelRef.current !== "area") return;
+              pathLayer.setStyle(
+                suburbStyle(
+                  feat,
+                  "area",
+                  activeSuburbSlugRef.current,
+                  false,
+                ),
+              );
+              const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+              applyGlow(path, false);
+              if (path) path.style.strokeWidth = "1.6";
+            });
+            layer.on("click", () => {
+              if (levelRef.current !== "area") return;
+              const p = feat.properties as Suburb;
+              onSuburbClickRef.current(propsToSuburb(p));
+            });
+          },
+        },
+      ).addTo(map);
+    }
+
+    function refreshAreaStyles() {
+      const layer = areaLayerRef.current;
+      if (!layer) return;
+      layer.setStyle(f =>
+        areaStyle(f as GeoJSON.Feature, levelRef.current, activeAreaNameRef.current),
+      );
+    }
+
+    function refreshSuburbStyles() {
+      const layer = suburbLayerRef.current;
+      if (!layer) return;
+      layer.setStyle(f =>
+        suburbStyle(
+          f as GeoJSON.Feature,
+          levelRef.current,
+          activeSuburbSlugRef.current,
+          false,
+        ),
+      );
+    }
+
+    useEffect(() => {
+      if (!containerRef.current || mapRef.current) return;
+
+      const map = L.map(containerRef.current, {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        preferCanvas: false,
+        zoomAnimation: true,
+      }).fitBounds(STATE_BOUNDS.NSW, { padding: [10, 10] });
+
+      const tileLayer = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        { subdomains: "abcd", maxZoom: 19 },
+      ).addTo(map);
+
+      mapRef.current = map;
+      tileLayerRef.current = tileLayer;
+
+      Promise.all([
+        fetch("/areas_smooth.geojson").then(r => r.json()),
+        fetch("/suburbs.geojson").then(r => r.json()),
+      ])
+        .then(
+          ([areasData, suburbsData]: [
+            GeoJSON.FeatureCollection,
+            GeoJSON.FeatureCollection,
+          ]) => {
+            areasFCRef.current = areasData;
+            suburbsFCRef.current = suburbsData;
+
+            const counts: Record<string, number> = {};
+            suburbsData.features.forEach(f => {
+              const p = f.properties as { area: string; state: string };
+              if (p.state === "NSW") counts[p.area] = (counts[p.area] || 0) + 1;
+            });
+            areaCountsRef.current = counts;
+
+            const nswAreas = areasData.features.filter(
+              f =>
+                !EXCLUDED_NSW_AREAS.has(
+                  (f.properties as { name: string }).name,
+                ),
+            );
+
+            areaLayerRef.current = L.geoJSON(nswAreas as GeoJSON.Feature[], {
+              style: f => areaStyle(f as GeoJSON.Feature, "state", null),
+              onEachFeature: (f, layer) => {
+                const feat = f as GeoJSON.Feature;
+                const pathLayer = layer as L.Path;
+                const areaName = (feat.properties as { name: string }).name;
+
+                layer.on("add", () => {
+                  const path = pathLayer.getElement?.() as
+                    | SVGPathElement
+                    | undefined;
+                  if (path) {
+                    path.classList.add("area-tile");
+                    path.dataset.area = areaName;
+                    path.style.filter = GLOW;
+                  }
+                });
+
+                layer.on("mouseover", e => {
+                  if (levelRef.current !== "state") return;
+                  pathLayer.setStyle({ ...AREA_BASE, fillOpacity: 0.3, weight: 5 });
+                  const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+                  if (path) path.classList.add("lifted");
+                  applyGlow(path, true);
+                  const oe = e.originalEvent as MouseEvent;
+                  setAreaHoverTooltip({
+                    pageX: oe.pageX + 14,
+                    pageY: oe.pageY - 12,
+                    name: areaName,
+                    count: counts[areaName] ?? 0,
+                  });
+                });
+
+                layer.on("mousemove", e => {
+                  if (levelRef.current !== "state") return;
+                  const oe = e.originalEvent as MouseEvent;
+                  setAreaHoverTooltip(prev =>
+                    prev
+                      ? { ...prev, pageX: oe.pageX + 14, pageY: oe.pageY - 12 }
+                      : null,
+                  );
+                });
+
+                layer.on("mouseout", () => {
+                  pathLayer.setStyle({ ...AREA_BASE });
+                  const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+                  if (path) path.classList.remove("lifted");
+                  applyGlow(path, false);
+                  setAreaHoverTooltip(null);
+                });
+
+                layer.on("click", () => {
+                  if (levelRef.current !== "state") return;
+                  const p = feat.properties as { name: string; slug: string };
+                  onAreaClickRef.current(propsToArea(p));
+                });
+              },
+            }).addTo(map);
+          },
+        )
+        .catch(err => console.error("[LeafletSceneV2] GeoJSON error:", err));
+
+      return () => {
+        map.remove();
+        mapRef.current = null;
+        tileLayerRef.current = null;
+        areaLayerRef.current = null;
+        suburbLayerRef.current = null;
+        levelRef.current = "state";
+        activeAreaNameRef.current = null;
+        activeSuburbSlugRef.current = null;
+      };
+    }, []);
+
+    useImperativeHandle(ref, () => ({
+      getAreaCounts: () => ({ ...areaCountsRef.current }),
+
+      goToNswState() {
+        const map = mapRef.current;
+        if (!map) return;
+        setAreaHoverTooltip(null);
+        levelRef.current = "state";
+        activeAreaNameRef.current = null;
+        activeSuburbSlugRef.current = null;
+        clearSuburbLayer(map);
+        if (areaLayerRef.current && !map.hasLayer(areaLayerRef.current)) {
+          areaLayerRef.current.addTo(map);
+        }
+        refreshAreaStyles();
+        map.flyToBounds(STATE_BOUNDS.NSW, {
+          padding: [10, 10],
+          duration: 1.4,
+          easeLinearity: 0.25,
+        });
+      },
+
+      drillToArea(area) {
+        const map = mapRef.current;
+        const fc = areasFCRef.current;
+        if (!map || !fc) return;
+        setAreaHoverTooltip(null);
+
+        const feature = fc.features.find(
+          f => (f.properties as { name: string }).name === area.name,
+        );
+        if (!feature) {
+          console.warn("[LeafletSceneV2] area not found:", area.name);
+          return;
+        }
+
+        levelRef.current = "area";
+        activeAreaNameRef.current = area.name;
+        activeSuburbSlugRef.current = null;
+        refreshAreaStyles();
+        showSuburbsForArea(map, area.name);
+
+        map.flyToBounds(L.geoJSON(feature).getBounds(), {
+          padding: [60, 60],
+          duration: 1.4,
+          easeLinearity: 0.25,
+        });
+      },
+
+      focusSuburb(suburb) {
+        const map = mapRef.current;
+        const fc = suburbsFCRef.current;
+        if (!map || !fc) return;
+        setAreaHoverTooltip(null);
+
+        const feature = fc.features.find(
+          f => (f.properties as { slug: string }).slug === suburb.slug,
+        );
+        if (!feature) {
+          console.warn("[LeafletSceneV2] suburb not found:", suburb.slug);
+          return;
+        }
+
+        levelRef.current = "suburb";
+        activeAreaNameRef.current = suburb.area;
+        activeSuburbSlugRef.current = suburb.slug;
+
+        if (suburb.state === "NSW") {
+          showSuburbsForArea(map, suburb.area);
+          refreshAreaStyles();
+        }
+        refreshSuburbStyles();
+
+        map.flyToBounds(L.geoJSON(feature).getBounds(), {
+          padding: [120, 120],
+          duration: 1.2,
+          easeLinearity: 0.25,
+        });
+      },
+
+      upToArea(area) {
+        const map = mapRef.current;
+        const fc = areasFCRef.current;
+        if (!map || !fc) return;
+        setAreaHoverTooltip(null);
+
+        const feature = fc.features.find(
+          f => (f.properties as { name: string }).name === area.name,
+        );
+        if (!feature) {
+          console.warn("[LeafletSceneV2] upToArea: area not found:", area.name);
+          return;
+        }
+
+        levelRef.current = "area";
+        activeSuburbSlugRef.current = null;
+        refreshAreaStyles();
+        refreshSuburbStyles();
+
+        map.flyToBounds(L.geoJSON(feature).getBounds(), {
+          padding: [60, 60],
+          duration: 1.0,
+          easeLinearity: 0.25,
+        });
+      },
+
+      showSingleStateSuburb(suburb) {
+        const map = mapRef.current;
+        const fc = suburbsFCRef.current;
+        if (!map || !fc) return;
+        setAreaHoverTooltip(null);
+
+        const feature = fc.features.find(
+          f => (f.properties as { slug: string }).slug === suburb.slug,
+        );
+        if (!feature) {
+          console.warn("[LeafletSceneV2] showcase suburb not found:", suburb.slug);
+          return;
+        }
+
+        levelRef.current = "suburb";
+        activeAreaNameRef.current = suburb.area;
+        activeSuburbSlugRef.current = suburb.slug;
+
+        if (areaLayerRef.current && map.hasLayer(areaLayerRef.current)) {
+          map.removeLayer(areaLayerRef.current);
+        }
+        clearSuburbLayer(map);
+
+        suburbLayerRef.current = L.geoJSON(feature, {
+          style: {
+            color: WHITE,
+            weight: 3,
+            opacity: 1,
+            fillColor: WHITE,
+            fillOpacity: 0.35,
+          },
+          onEachFeature: (f, layer) => {
+            layer.on("add", () => {
+              const path = (layer as L.Path).getElement?.() as
+                | SVGPathElement
+                | undefined;
+              if (path) {
+                path.classList.add("suburb-tile");
+                path.style.filter = GLOW;
+              }
+            });
+          },
+        }).addTo(map);
+
+        const bounds =
+          suburb.state === "QLD"
+            ? STATE_BOUNDS.QLD
+            : suburb.state === "TAS"
+              ? STATE_BOUNDS.TAS
+              : L.geoJSON(feature).getBounds();
+
+        map.flyToBounds(bounds, {
+          padding: [120, 120],
+          duration: 1.3,
+          easeLinearity: 0.25,
+        });
+      },
+    }));
+
+    return (
+      <>
+        <div
+          ref={containerRef}
+          className="leaflet-v2-map absolute inset-0 z-0"
+        />
+        {areaHoverTooltip != null ? (
+          <div
+            className="font-sans"
+            style={{
+              position: "fixed",
+              left: areaHoverTooltip.pageX,
+              top: areaHoverTooltip.pageY,
+              zIndex: 1500,
+              pointerEvents: "none",
+              background: INK_0,
+              border: `1px solid ${INK_100}`,
+              borderRadius: 8,
+              padding: "8px 14px",
+            }}
+          >
+            <div
+              style={{
+                color: INK_100,
+                fontWeight: 700,
+                fontSize: 12,
+                letterSpacing: "0.5px",
+                textTransform: "uppercase",
+              }}
+            >
+              {areaHoverTooltip.name}
+            </div>
+            <span
+              style={{
+                display: "block",
+                fontSize: 10,
+                fontWeight: 500,
+                color: INK_60,
+                letterSpacing: "0.3px",
+                marginTop: 2,
+              }}
+            >
+              {areaHoverTooltip.count} suburbs · click to drill in
+            </span>
+          </div>
+        ) : null}
+      </>
+    );
+  },
+);

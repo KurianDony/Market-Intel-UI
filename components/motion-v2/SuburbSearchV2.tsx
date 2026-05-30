@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { GooeyInput } from "@/components/aceternity/gooey-input";
 import { INK_5, INK_20, INK_100 } from "@/lib/palette/v2";
-import type { Suburb } from "./MapboxSceneV2";
+import type { Suburb } from "./types";
 
 type Props = {
   /** Full prototype navigation (state → area → suburb), not plain focus. */

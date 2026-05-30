@@ -1,0 +1,29 @@
+.leaflet-v2-map .leaflet-overlay-pane svg path.area-tile,
+.leaflet-v2-map .leaflet-overlay-pane svg path.suburb-tile {
+  cursor: pointer;
+  transition:
+    filter 0.35s ease,
+    stroke-width 0.35s ease,
+    fill-opacity 0.35s ease;
+}
+
+.leaflet-v2-map .leaflet-overlay-pane svg path.area-tile.lifted {
+  transform: translateY(-4px);
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.leaflet-v2-map .leaflet-container {
+  background: #000000;
+  font-family: inherit;
+}
+
+.leaflet-v2-map .leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.65) !important;
+  color: #999 !important;
+  font-size: 10px;
+}
+
+.leaflet-v2-map .leaflet-control-attribution a {
+  color: #ccc !important;
+}
