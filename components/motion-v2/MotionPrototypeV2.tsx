@@ -2,9 +2,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import type { LeafletSceneHandle, Area, Suburb } from "./types";
-import { suburbDashboardHref } from "@/lib/dash/slugs";
 import { ACCENT_RED, AREA_COLOR_BY_NAME, INK_0, INK_10, INK_40, INK_80, INK_100 } from "@/lib/palette/v2";
 import { SuburbSearchV2 } from "./SuburbSearchV2";
 import { SeeDataLink } from "./SeeDataLink";
@@ -26,7 +24,6 @@ const LeafletSceneV2 = dynamic(
 );
 
 export function MotionPrototypeV2() {
-  const router = useRouter();
   const [stateKey, setStateKey] = useState<StateKey>("NSW");
   const [level, setLevel] = useState<Level>("state");
   const [activeArea, setActiveArea] = useState<Area | null>(null);
@@ -47,11 +44,14 @@ export function MotionPrototypeV2() {
 
   const handleSuburbClick = useCallback(
     (suburb: Suburb) => {
-      router.push(
-        suburbDashboardHref(suburb.state, suburb.area, suburb.slug),
-      );
+      setLevel("suburb");
+      setActiveSuburb(suburb);
+      if (!activeArea || activeArea.name !== suburb.area) {
+        setActiveArea({ name: suburb.area, slug: slugify(suburb.area) });
+      }
+      mapRef.current?.focusSuburb(suburb);
     },
-    [router],
+    [activeArea],
   );
 
   /** Search pick: full UI + map sequence (state → area → suburb), aligned with manual navigation. */

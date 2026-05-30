@@ -51,6 +51,17 @@ const SUBURB_BASE: L.PathOptions = {
   fillOpacity: 0.12,
 };
 
+const HIDDEN_AREA: L.PathOptions = { opacity: 0, fillOpacity: 0, weight: 0 };
+
+const ACTIVE_AREA_OUTLINE: L.PathOptions = {
+  color: WHITE,
+  weight: 2,
+  opacity: 0.7,
+  fillColor: WHITE,
+  fillOpacity: 0.04,
+  dashArray: "4 4",
+};
+
 interface Props {
   onAreaClick: (area: Area) => void;
   onSuburbClick: (suburb: Suburb) => void;
@@ -77,6 +88,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     const tileLayerRef = useRef<L.TileLayer | null>(null);
     const areaLayerRef = useRef<L.GeoJSON | null>(null);
     const suburbLayerRef = useRef<L.GeoJSON | null>(null);
+    const suburbLabelLayerRef = useRef<L.LayerGroup | null>(null);
     const areasFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
     const suburbsFCRef = useRef<GeoJSON.FeatureCollection | null>(null);
     const areaCountsRef = useRef<Record<string, number>>({});
@@ -103,17 +115,39 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     ): L.PathOptions {
       const name = (feature.properties as { name: string }).name;
       if (level === "state") return { ...AREA_BASE };
-      if (name === activeArea) {
-        return {
-          color: WHITE,
-          weight: 2,
-          opacity: 0.7,
-          fillColor: WHITE,
-          fillOpacity: 0.04,
-          dashArray: "4 4",
-        };
+      if (name === activeArea) return { ...ACTIVE_AREA_OUTLINE };
+      return { ...HIDDEN_AREA };
+    }
+
+    function suburbLabelIcon(name: string): L.DivIcon {
+      return L.divIcon({
+        className: "suburb-label-icon",
+        html: `<div style="color:#fff;font-size:10px;font-weight:600;text-shadow:0 0 4px #000,0 0 4px #000;white-space:nowrap;text-align:center;transform:translateX(-50%);pointer-events:none">${name}</div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      });
+    }
+
+    function clearSuburbLabels(map: L.Map) {
+      if (suburbLabelLayerRef.current) {
+        map.removeLayer(suburbLabelLayerRef.current);
+        suburbLabelLayerRef.current = null;
       }
-      return { opacity: 0, fillOpacity: 0, weight: 0 };
+    }
+
+    function addSuburbLabels(map: L.Map, features: GeoJSON.Feature[]) {
+      clearSuburbLabels(map);
+      const group = L.layerGroup();
+      features.forEach(f => {
+        const name = (f.properties as { name: string }).name;
+        const center = L.geoJSON(f).getBounds().getCenter();
+        L.marker(center, {
+          icon: suburbLabelIcon(name),
+          interactive: false,
+        }).addTo(group);
+      });
+      group.addTo(map);
+      suburbLabelLayerRef.current = group;
     }
 
     function suburbStyle(
@@ -158,6 +192,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         map.removeLayer(suburbLayerRef.current);
         suburbLayerRef.current = null;
       }
+      clearSuburbLabels(map);
     }
 
     function showSuburbsForArea(map: L.Map, areaName: string) {
@@ -224,14 +259,49 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           },
         },
       ).addTo(map);
+
+      addSuburbLabels(map, filtered);
     }
 
-    function refreshAreaStyles() {
-      const layer = areaLayerRef.current;
-      if (!layer) return;
-      layer.setStyle(f =>
-        areaStyle(f as GeoJSON.Feature, levelRef.current, activeAreaNameRef.current),
-      );
+    /** Hide non-active areas and disable their pointer events when drilled in. */
+    function refreshAreaLayers() {
+      const group = areaLayerRef.current;
+      if (!group) return;
+      const level = levelRef.current;
+      const activeArea = activeAreaNameRef.current;
+
+      group.eachLayer(layer => {
+        const pathLayer = layer as L.Path & { feature?: GeoJSON.Feature };
+        const feat = pathLayer.feature;
+        if (!feat) return;
+        const name = (feat.properties as { name: string }).name;
+        const path = pathLayer.getElement?.() as SVGPathElement | undefined;
+
+        if (level === "state") {
+          pathLayer.setStyle({ ...AREA_BASE });
+          pathLayer.options.interactive = true;
+          if (path) {
+            path.style.pointerEvents = "";
+            path.style.filter = GLOW;
+          }
+          return;
+        }
+
+        if (name === activeArea) {
+          pathLayer.setStyle({ ...ACTIVE_AREA_OUTLINE });
+          pathLayer.options.interactive = false;
+          if (path) path.style.pointerEvents = "none";
+          return;
+        }
+
+        pathLayer.setStyle({ ...HIDDEN_AREA });
+        pathLayer.options.interactive = false;
+        if (path) {
+          path.style.pointerEvents = "none";
+          path.style.filter = "none";
+          path.classList.remove("lifted");
+        }
+      });
     }
 
     function refreshSuburbStyles() {
@@ -335,6 +405,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
                 });
 
                 layer.on("mouseout", () => {
+                  if (levelRef.current !== "state") return;
                   pathLayer.setStyle({ ...AREA_BASE });
                   const path = pathLayer.getElement?.() as SVGPathElement | undefined;
                   if (path) path.classList.remove("lifted");
@@ -359,6 +430,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         tileLayerRef.current = null;
         areaLayerRef.current = null;
         suburbLayerRef.current = null;
+        suburbLabelLayerRef.current = null;
         levelRef.current = "state";
         activeAreaNameRef.current = null;
         activeSuburbSlugRef.current = null;
@@ -379,7 +451,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         if (areaLayerRef.current && !map.hasLayer(areaLayerRef.current)) {
           areaLayerRef.current.addTo(map);
         }
-        refreshAreaStyles();
+        refreshAreaLayers();
         map.flyToBounds(STATE_BOUNDS.NSW, {
           padding: [10, 10],
           duration: 1.4,
@@ -404,7 +476,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         levelRef.current = "area";
         activeAreaNameRef.current = area.name;
         activeSuburbSlugRef.current = null;
-        refreshAreaStyles();
+        refreshAreaLayers();
         showSuburbsForArea(map, area.name);
 
         map.flyToBounds(L.geoJSON(feature).getBounds(), {
@@ -434,7 +506,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
         if (suburb.state === "NSW") {
           showSuburbsForArea(map, suburb.area);
-          refreshAreaStyles();
+          refreshAreaLayers();
         }
         refreshSuburbStyles();
 
@@ -461,7 +533,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
         levelRef.current = "area";
         activeSuburbSlugRef.current = null;
-        refreshAreaStyles();
+        refreshAreaLayers();
         refreshSuburbStyles();
 
         map.flyToBounds(L.geoJSON(feature).getBounds(), {
@@ -514,6 +586,8 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
             });
           },
         }).addTo(map);
+
+        addSuburbLabels(map, [feature]);
 
         const bounds =
           suburb.state === "QLD"

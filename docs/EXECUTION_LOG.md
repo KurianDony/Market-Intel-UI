@@ -53,3 +53,4 @@
 | 2026-05-30 00:35 | refactor | Switch to mapbox dark-v11; drop Standard-v3 slots/setProjection/ensureBasemapVisible workarounds. |
 | 2026-05-30 01:15 | fix(map) | Revert MapboxSceneV2 init to def54ba (setProjection mercator, env style required); white-glow outlines via INK_100 + line-blur. |
 | 2026-05-30 12:00 | feat(map) | Port / map to Leaflet 1.9.4 + CartoDB dark basemap + SVG drop-shadow glow; drop MapboxSceneV2 from v2 route. |
+| 2026-05-30 13:00 | fix(map) | Hide non-active areas on drill; suburb divIcon labels; suburb-click zooms, See-data navigates. |

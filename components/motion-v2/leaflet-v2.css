@@ -27,3 +27,8 @@
 .leaflet-v2-map .leaflet-control-attribution a {
   color: #ccc !important;
 }
+
+.leaflet-v2-map .suburb-label-icon {
+  background: none !important;
+  border: none !important;
+}
