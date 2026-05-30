@@ -7,9 +7,22 @@
     fill-opacity 0.35s ease;
 }
 
-/* Suppress glow transitions during zoom — avoids dotting/raster artifacts */
-.leaflet-v2-map.is-zooming .leaflet-overlay-pane svg path.area-tile,
-.leaflet-v2-map.is-zooming .leaflet-overlay-pane svg path.suburb-tile {
+/* Uniform soft blur on entire map viewport during zoom/fly (tiles + vectors + labels).
+   Leaflet adds .leaflet-container to the same node as .leaflet-v2-map. */
+.leaflet-v2-map.leaflet-container,
+.leaflet-v2-map .leaflet-container {
+  transition: filter 0.25s ease;
+  filter: none;
+}
+
+.leaflet-v2-map.map-zooming.leaflet-container,
+.leaflet-v2-map.map-zooming .leaflet-container {
+  filter: blur(6px);
+}
+
+/* Suppress per-path glow transitions during motion — avoids dotting/raster artifacts */
+.leaflet-v2-map.map-zooming .leaflet-overlay-pane svg path.area-tile,
+.leaflet-v2-map.map-zooming .leaflet-overlay-pane svg path.suburb-tile {
   transition: none !important;
   filter: none !important;
 }
@@ -36,9 +49,11 @@
   transform-box: fill-box;
 }
 
+.leaflet-v2-map.leaflet-container,
 .leaflet-v2-map .leaflet-container {
   background: #000000;
   font-family: inherit;
+  will-change: filter;
 }
 
 .leaflet-v2-map .leaflet-control-attribution {

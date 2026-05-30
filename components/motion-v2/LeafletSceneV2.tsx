@@ -70,7 +70,7 @@ const FOCUS_MAX_ZOOM = 14;
 /** Clip/simplify vector paths — lighter SVG during pan/zoom. */
 const GEO_SMOOTH_FACTOR = 2.5;
 
-const TRANSITION_MASK_END_MS = 150;
+const MOTION_SETTLE_MS = 80;
 
 const SUBURB_DIMMED: L.PathOptions = {
   color: WHITE,
@@ -91,8 +91,6 @@ const SUBURB_FOCUSED: L.PathOptions = {
 interface Props {
   onAreaClick: (area: Area) => void;
   onSuburbClick: (suburb: Suburb) => void;
-  onTransitionStart?: () => void;
-  onTransitionEnd?: () => void;
 }
 
 function applyGlow(path: SVGPathElement | null | undefined, hover: boolean) {
@@ -122,10 +120,7 @@ function featureToLatLng(feature: GeoJSON.Feature): L.LatLng {
 }
 
 export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
-  function LeafletSceneV2(
-    { onAreaClick, onSuburbClick, onTransitionStart, onTransitionEnd },
-    ref,
-  ) {
+  function LeafletSceneV2({ onAreaClick, onSuburbClick }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<L.Map | null>(null);
     const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -144,29 +139,13 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
     const onAreaClickRef = useRef(onAreaClick);
     const onSuburbClickRef = useRef(onSuburbClick);
-    const onTransitionStartRef = useRef(onTransitionStart);
-    const onTransitionEndRef = useRef(onTransitionEnd);
     onAreaClickRef.current = onAreaClick;
     onSuburbClickRef.current = onSuburbClick;
-    onTransitionStartRef.current = onTransitionStart;
-    onTransitionEndRef.current = onTransitionEnd;
 
-    function flyWithTransitionMask(map: L.Map, fly: () => void) {
-      onTransitionStartRef.current?.();
-      let settled = false;
-      const onSettle = () => {
-        if (settled) return;
-        settled = true;
-        map.off("moveend", onSettle);
-        map.off("zoomend", onSettle);
-        window.setTimeout(() => {
-          onTransitionEndRef.current?.();
-        }, TRANSITION_MASK_END_MS);
-      };
-      map.on("moveend", onSettle);
-      map.on("zoomend", onSettle);
-      fly();
-    }
+    const mapMotionDepthRef = useRef(0);
+    const mapMotionEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
 
     const [areaHoverTooltip, setAreaHoverTooltip] = useState<{
       pageX: number;
@@ -201,7 +180,31 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
     function setMapZooming(zooming: boolean) {
       isZoomingRef.current = zooming;
-      containerRef.current?.classList.toggle("is-zooming", zooming);
+      containerRef.current?.classList.toggle("map-zooming", zooming);
+    }
+
+    function beginMapMotion() {
+      if (mapMotionEndTimerRef.current) {
+        clearTimeout(mapMotionEndTimerRef.current);
+        mapMotionEndTimerRef.current = null;
+      }
+      mapMotionDepthRef.current += 1;
+      if (mapMotionDepthRef.current === 1) {
+        setMapZooming(true);
+        stripPathGlows();
+      }
+    }
+
+    function scheduleEndMapMotion() {
+      if (mapMotionEndTimerRef.current) {
+        clearTimeout(mapMotionEndTimerRef.current);
+      }
+      mapMotionEndTimerRef.current = setTimeout(() => {
+        mapMotionDepthRef.current = 0;
+        mapMotionEndTimerRef.current = null;
+        setMapZooming(false);
+        restorePathGlows();
+      }, MOTION_SETTLE_MS);
     }
 
     function stripPathGlows() {
@@ -534,17 +537,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         },
       ).addTo(map);
 
-      const onZoomStart = () => {
-        setMapZooming(true);
-        stripPathGlows();
-      };
-      const onZoomEnd = () => {
-        setMapZooming(false);
-        restorePathGlows();
-      };
-      map.on("zoomstart", onZoomStart);
-      map.on("zoomend", onZoomEnd);
-      map.on("moveend", onZoomEnd);
+      map.on("zoomstart", beginMapMotion);
+      map.on("movestart", beginMapMotion);
+      map.on("zoomend", scheduleEndMapMotion);
+      map.on("moveend", scheduleEndMapMotion);
 
       mapRef.current = map;
       tileLayerRef.current = tileLayer;
@@ -643,9 +639,13 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         .catch(err => console.error("[LeafletSceneV2] GeoJSON error:", err));
 
       return () => {
-        map.off("zoomstart", onZoomStart);
-        map.off("zoomend", onZoomEnd);
-        map.off("moveend", onZoomEnd);
+        if (mapMotionEndTimerRef.current) {
+          clearTimeout(mapMotionEndTimerRef.current);
+        }
+        map.off("zoomstart", beginMapMotion);
+        map.off("movestart", beginMapMotion);
+        map.off("zoomend", scheduleEndMapMotion);
+        map.off("moveend", scheduleEndMapMotion);
         map.remove();
         mapRef.current = null;
         tileLayerRef.current = null;
@@ -675,12 +675,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           areaLayerRef.current.addTo(map);
         }
         refreshAreaLayers();
-        flyWithTransitionMask(map, () => {
-          map.flyToBounds(STATE_BOUNDS.NSW, {
-            padding: [10, 10],
-            duration: 1.4,
-            easeLinearity: 0.25,
-          });
+        map.flyToBounds(STATE_BOUNDS.NSW, {
+          padding: [10, 10],
+          duration: 1.4,
+          easeLinearity: 0.25,
         });
       },
 
@@ -706,12 +704,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
         revealSuburbsAfterFly(map, area.name);
 
-        flyWithTransitionMask(map, () => {
-          map.flyToBounds(L.geoJSON(feature).getBounds(), {
-            padding: [60, 60],
-            duration: 1.4,
-            easeLinearity: 0.25,
-          });
+        map.flyToBounds(L.geoJSON(feature).getBounds(), {
+          padding: [60, 60],
+          duration: 1.4,
+          easeLinearity: 0.25,
         });
       },
 
@@ -743,13 +739,11 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         }
         setFocusedSuburbLabel(map, feature);
 
-        flyWithTransitionMask(map, () => {
-          map.flyToBounds(L.geoJSON(feature).getBounds(), {
-            padding: FOCUS_FLY_PADDING,
-            maxZoom: FOCUS_MAX_ZOOM,
-            duration: 1.2,
-            easeLinearity: 0.25,
-          });
+        map.flyToBounds(L.geoJSON(feature).getBounds(), {
+          padding: FOCUS_FLY_PADDING,
+          maxZoom: FOCUS_MAX_ZOOM,
+          duration: 1.2,
+          easeLinearity: 0.25,
         });
       },
 
@@ -779,12 +773,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           addAreaSuburbLabels(map, filtered, null);
         }
 
-        flyWithTransitionMask(map, () => {
-          map.flyToBounds(L.geoJSON(feature).getBounds(), {
-            padding: [60, 60],
-            duration: 1.0,
-            easeLinearity: 0.25,
-          });
+        map.flyToBounds(L.geoJSON(feature).getBounds(), {
+          padding: [60, 60],
+          duration: 1.0,
+          easeLinearity: 0.25,
         });
       },
 
@@ -839,13 +831,11 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
               ? STATE_BOUNDS.TAS
               : L.geoJSON(feature).getBounds();
 
-        flyWithTransitionMask(map, () => {
-          map.flyToBounds(bounds, {
-            padding: FOCUS_FLY_PADDING,
-            maxZoom: FOCUS_MAX_ZOOM,
-            duration: 1.2,
-            easeLinearity: 0.25,
-          });
+        map.flyToBounds(bounds, {
+          padding: FOCUS_FLY_PADDING,
+          maxZoom: FOCUS_MAX_ZOOM,
+          duration: 1.2,
+          easeLinearity: 0.25,
         });
       },
     }));
