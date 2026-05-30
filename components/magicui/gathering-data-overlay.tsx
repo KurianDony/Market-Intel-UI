@@ -13,7 +13,7 @@ const EYE_SIZE = "min(92vw, 72dvh)";
 const VIEWPORT_MARGIN_PX = 24;
 
 /** Label vs 56/6.4/72 base (+20% size vs prior). */
-const LABEL_SCALE = 0.75 * 0.7 * 0.5 * 1.2;
+const LABEL_SCALE = 0.75 * 0.7 * 0.5 * 1.2 * 1.2;
 
 const WARP_EDGE_MASK =
   "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
@@ -83,7 +83,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               style={{
                 color: INK_100,
                 fontSize: `clamp(${56 * LABEL_SCALE}px, ${6.4 * LABEL_SCALE}vw, ${72 * LABEL_SCALE}px)`,
-                transform: "translateY(-14%)",
+                transform: "translateY(-54%)",
               }}
             >
               Gathering your data
