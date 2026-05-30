@@ -72,3 +72,4 @@
 | 2026-05-30 04:30 | feat(ui) | Loader card wide rectangle: 150px length, halved Lottie height (~69px). |
 | 2026-05-30 05:00 | feat(ui) | Loader: remove box; restore 1500px eye viewport; single-line label. |
 | 2026-05-30 05:15 | feat(ui) | Loader: 3× eye viewport, 2× label size, no box. |
+| 2026-05-30 06:00 | fix(ui) | Restore visible eye (`min(92vw,72dvh)`); remove broken scale(4); warp 1.3× speed. |
