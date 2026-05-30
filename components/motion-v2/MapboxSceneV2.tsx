@@ -18,6 +18,40 @@ const FLAT_PITCH = 0;
 
 const WHITE = "#ffffff";
 
+/** Only these layers may be toggled — never touch Mapbox style/basemap layers. */
+const CUSTOM_LAYER_IDS = [
+  "areas-outline-glow",
+  "areas-outline",
+  "areas-fill",
+  "areas-outline-active",
+  "suburbs-outline-glow",
+  "suburbs-outline",
+  "suburbs-fill",
+  "suburbs-label",
+] as const;
+
+const CUSTOM_LAYER_ID_SET = new Set<string>(CUSTOM_LAYER_IDS);
+
+function isCustomLayer(id: string): boolean {
+  return CUSTOM_LAYER_ID_SET.has(id);
+}
+
+/** Reset any style-layer visibility that was hidden (Studio or legacy code). */
+function ensureBasemapVisible(map: mapboxgl.Map) {
+  const layers = map.getStyle()?.layers;
+  if (!layers) return;
+  for (const layer of layers) {
+    if (isCustomLayer(layer.id)) continue;
+    try {
+      if (map.getLayoutProperty(layer.id, "visibility") === "none") {
+        map.setLayoutProperty(layer.id, "visibility", "visible");
+      }
+    } catch {
+      // Some import/slot layers may not expose layout — skip.
+    }
+  }
+}
+
 // Suburb fill — faint white tint at area zoom; brighter when selected.
 const SUBURB_FILL_AREA_MODE: mapboxgl.Expression = [
   "case",
@@ -162,6 +196,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "areas-outline-glow",
             type: "line",
             source: "areas",
+            slot: "top",
             paint: {
               "line-color": WHITE,
               "line-width": 6,
@@ -173,6 +208,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "areas-outline",
             type: "line",
             source: "areas",
+            slot: "top",
             paint: {
               "line-color": WHITE,
               "line-width": 1.5,
@@ -183,6 +219,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "areas-fill",
             type: "fill",
             source: "areas",
+            slot: "top",
             paint: {
               "fill-color": WHITE,
               "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03],
@@ -195,6 +232,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "areas-outline-active",
             type: "line",
             source: "areas",
+            slot: "top",
             layout: { visibility: "none" },
             paint: {
               "line-color": INK_100,
@@ -211,6 +249,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "suburbs-outline-glow",
             type: "line",
             source: "suburbs",
+            slot: "top",
             layout: { visibility: "none" },
             paint: {
               "line-color": WHITE,
@@ -223,6 +262,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "suburbs-outline",
             type: "line",
             source: "suburbs",
+            slot: "top",
             layout: { visibility: "none" },
             paint: {
               "line-color": WHITE,
@@ -234,6 +274,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "suburbs-fill",
             type: "fill",
             source: "suburbs",
+            slot: "top",
             layout: { visibility: "none" },
             paint: {
               "fill-color": WHITE,
@@ -246,6 +287,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             id: "suburbs-label",
             type: "symbol",
             source: "suburbs-centroids",
+            slot: "top",
             layout: {
               visibility: "none",
               "text-field": ["get", "name"],
@@ -263,22 +305,8 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             },
           });
 
-          // Custom stack z-order: glow halos → crisp outlines → fills → labels.
-          const layerOrder = [
-            "areas-outline-glow",
-            "areas-outline",
-            "areas-fill",
-            "areas-outline-active",
-            "suburbs-outline-glow",
-            "suburbs-outline",
-            "suburbs-fill",
-            "suburbs-label",
-          ];
-          for (let i = 0; i < layerOrder.length - 1; i++) {
-            const id = layerOrder[i];
-            const before = layerOrder[i + 1];
-            if (map.getLayer(id) && map.getLayer(before)) map.moveLayer(id, before);
-          }
+          ensureBasemapVisible(map);
+          map.on("styledata", () => ensureBasemapVisible(map));
 
           // ── Hover: areas (state level) — feature-state + cursor banner + suburb count
           let hoveredAreaId: string | null = null;
@@ -376,6 +404,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
     // ── Layer toggle helpers ────────────────────────────────────────────────
 
     function setLayerVis(map: mapboxgl.Map, id: string, visible: boolean) {
+      if (!isCustomLayer(id)) return;
       if (!map.getLayer(id)) return;
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     }
@@ -483,6 +512,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
         });
 
         map.once("moveend", () => {
+          ensureBasemapVisible(map);
           setSuburbsVisible(map, false);
           setActiveAreaDashed(map, null);
           setAreasVisible(map, true);
@@ -510,6 +540,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
         flyToBbox(map, bbox, { padding: 60, pitch: FLAT_PITCH, duration: 1400 });
 
         map.once("moveend", () => {
+          ensureBasemapVisible(map);
           setAreasVisible(map, false);
           setActiveAreaDashed(map, area.name);
           setSuburbFilter(map, ["==", ["get", "area"], area.name]);
