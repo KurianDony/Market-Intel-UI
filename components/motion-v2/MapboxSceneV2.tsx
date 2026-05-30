@@ -13,32 +13,12 @@ import { INK_0, INK_100, INK_60 } from "@/lib/palette/v2";
 
 export const NSW_STATE_BBOX: mapboxgl.LngLatBoundsLike = [150.50, -34.55, 151.95, -32.80];
 
-/** Classic Mapbox dark basemap — reliable tile loading (no Standard v3 slots). */
-export const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
-
 const SUBURB_PITCH = 35;
 const FLAT_PITCH = 0;
 
-const WHITE = "#ffffff";
-
-/** Custom overlay layers — only these may be visibility-toggled. */
-const CUSTOM_LAYER_IDS = new Set([
-  "areas-outline-glow",
-  "areas-outline",
-  "areas-fill",
-  "areas-outline-active",
-  "suburbs-outline-glow",
-  "suburbs-outline",
-  "suburbs-fill",
-  "suburbs-label",
-]);
-
-// Suburb fill — faint white tint at area zoom; brighter when selected.
-const SUBURB_FILL_AREA_MODE: mapboxgl.Expression = [
-  "case",
-  ["boolean", ["feature-state", "selected"], false],
-  0.30,
-  ["case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03],
+// Suburb paint expressions — clicked suburb gets the only fill.
+const SUBURB_FILL_MODE: mapboxgl.Expression = [
+  "case", ["boolean", ["feature-state", "selected"], false], 0.30, 0,
 ];
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -119,12 +99,13 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       if (!containerRef.current || mapRef.current) return;
 
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-      if (!token) { console.error("[MapboxSceneV2] missing NEXT_PUBLIC_MAPBOX_TOKEN"); return; }
+      const style = process.env.NEXT_PUBLIC_MAPBOX_STYLE;
+      if (!token || !style) { console.error("[MapboxSceneV2] missing env vars"); return; }
 
       mapboxgl.accessToken = token;
       const map = new mapboxgl.Map({
         container: containerRef.current,
-        style: process.env.NEXT_PUBLIC_MAPBOX_STYLE ?? MAP_STYLE,
+        style,
         center: [151.21, -33.87],
         zoom: 8.7,
         attributionControl: false,
@@ -135,6 +116,11 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
 
       map.on("load", () => {
+        // KEEP THIS — the saved Mapbox Studio style ships with
+        // `projection: globe` and a London-Greenwich `center`. Globe
+        // projection breaks fill polygon paint, and the saved center
+        // hijacks failed camera fallbacks. Force mercator unconditionally.
+        map.setProjection("mercator");
         map.fitBounds(NSW_STATE_BBOX, { padding: 10, duration: 0, essential: true });
         map.setPitch(FLAT_PITCH);
         map.setBearing(0);
@@ -168,13 +154,22 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
           // ── Areas: B&W inks only — brightness changes on hover, no hue shift.
           map.addSource("areas", { type: "geojson", data: areasData, promoteId: "name" });
           map.addLayer({
+            id: "areas-fill",
+            type: "fill",
+            source: "areas",
+            paint: {
+              "fill-color": INK_100,
+              "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03],
+            },
+          });
+          map.addLayer({
             id: "areas-outline-glow",
             type: "line",
             source: "areas",
             paint: {
-              "line-color": WHITE,
+              "line-color": INK_100,
               "line-width": 6,
-              "line-opacity": 0.35,
+              "line-opacity": 0.3,
               "line-blur": 3,
             },
           });
@@ -183,20 +178,9 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             type: "line",
             source: "areas",
             paint: {
-              "line-color": WHITE,
+              "line-color": INK_100,
               "line-width": 1.5,
               "line-opacity": 0.9,
-            },
-          });
-          map.addLayer({
-            id: "areas-fill",
-            type: "fill",
-            source: "areas",
-            paint: {
-              "fill-color": WHITE,
-              "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.10, 0.03],
-              "fill-outline-color": "rgba(255,255,255,0)",
-              "fill-antialias": false,
             },
           });
           // Dashed outline shown only when drilled into a single area.
@@ -217,14 +201,24 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
           map.addSource("suburbs", { type: "geojson", data: suburbsData, promoteId: "slug" });
           map.addSource("suburbs-centroids", { type: "geojson", data: suburbCentroids });
           map.addLayer({
+            id: "suburbs-fill",
+            type: "fill",
+            source: "suburbs",
+            layout: { visibility: "none" },
+            paint: {
+              "fill-color": INK_100,
+              "fill-opacity": SUBURB_FILL_MODE,
+            },
+          });
+          map.addLayer({
             id: "suburbs-outline-glow",
             type: "line",
             source: "suburbs",
             layout: { visibility: "none" },
             paint: {
-              "line-color": WHITE,
+              "line-color": INK_100,
               "line-width": 18,
-              "line-opacity": 0.35,
+              "line-opacity": 0.3,
               "line-blur": 9,
             },
           });
@@ -234,21 +228,9 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
             source: "suburbs",
             layout: { visibility: "none" },
             paint: {
-              "line-color": WHITE,
+              "line-color": INK_100,
               "line-width": 4.5,
-              "line-opacity": 0.95,
-            },
-          });
-          map.addLayer({
-            id: "suburbs-fill",
-            type: "fill",
-            source: "suburbs",
-            layout: { visibility: "none" },
-            paint: {
-              "fill-color": WHITE,
-              "fill-opacity": SUBURB_FILL_AREA_MODE,
-              "fill-outline-color": "rgba(255,255,255,0)",
-              "fill-antialias": false,
+              "line-opacity": 0.9,
             },
           });
           map.addLayer({
@@ -368,7 +350,7 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
     // ── Layer toggle helpers ────────────────────────────────────────────────
 
     function setLayerVis(map: mapboxgl.Map, id: string, visible: boolean) {
-      if (!CUSTOM_LAYER_IDS.has(id) || !map.getLayer(id)) return;
+      if (!map.getLayer(id)) return;
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     }
     function setAreasVisible(map: mapboxgl.Map, visible: boolean) {
@@ -391,17 +373,14 @@ export const MapboxSceneV2 = forwardRef<MapboxSceneHandle, Props>(
       );
     }
     function setSuburbsPaintMode(map: mapboxgl.Map, mode: "area" | "suburb") {
-      map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_AREA_MODE);
       if (mode === "area") {
-        map.setPaintProperty("suburbs-outline-glow", "line-width", 18);
-        map.setPaintProperty("suburbs-outline-glow", "line-opacity", 0.35);
+        map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_MODE);
         map.setPaintProperty("suburbs-outline", "line-width", 4.5);
-        map.setPaintProperty("suburbs-outline", "line-opacity", 0.95);
+        map.setPaintProperty("suburbs-outline", "line-opacity", 0.9);
       } else {
-        map.setPaintProperty("suburbs-outline-glow", "line-width", 12);
-        map.setPaintProperty("suburbs-outline-glow", "line-opacity", 0.4);
-        map.setPaintProperty("suburbs-outline", "line-width", 3.5);
-        map.setPaintProperty("suburbs-outline", "line-opacity", 0.95);
+        map.setPaintProperty("suburbs-fill", "fill-opacity", SUBURB_FILL_MODE);
+        map.setPaintProperty("suburbs-outline", "line-width", 4.5);
+        map.setPaintProperty("suburbs-outline", "line-opacity", 0.9);
       }
     }
     function clearSuburbSelection(map: mapboxgl.Map) {

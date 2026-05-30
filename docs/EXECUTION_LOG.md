@@ -51,3 +51,4 @@
 | 2026-05-29 23:45 | fix | MapboxSceneV2: remove global dim overlay; white-glow area+suburb outlines on normal basemap (layer order + fill-outline fix). |
 | 2026-05-30 00:10 | fix | MapboxSceneV2: ensureBasemapVisible + custom-layer-only toggles; slot:top layers (tiles load, basemap stays visible). |
 | 2026-05-30 00:35 | refactor | Switch to mapbox dark-v11; drop Standard-v3 slots/setProjection/ensureBasemapVisible workarounds. |
+| 2026-05-30 01:15 | fix(map) | Revert MapboxSceneV2 init to def54ba (setProjection mercator, env style required); white-glow outlines via INK_100 + line-blur. |
