@@ -8,13 +8,13 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Eye viewport — 3× base × 1.5625 (cumulative +25% bumps); no box. */
-const EYE_SCALE = 1.25 * 1.25;
+/** Eye viewport — 3× base × scale; no box. */
+const EYE_SCALE = 1.25 * 1.25 * 1.5;
 const EYE_VIEWPORT_PX = 1500 * 3 * EYE_SCALE;
 const LOTTIE_INSET_X = 80 * 3 * EYE_SCALE;
 const LOTTIE_INSET_Y = 120 * 3 * EYE_SCALE;
-/** Label vs 56/6.4/72 base — 0.75 × 0.7 ≈ 30% smaller than prior pass. */
-const LABEL_SCALE = 0.75 * 0.7;
+/** Label vs 56/6.4/72 base. */
+const LABEL_SCALE = 0.75 * 0.7 * 0.5;
 const VIEWPORT_MARGIN_PX = 24;
 
 const WARP_EDGE_MASK =
