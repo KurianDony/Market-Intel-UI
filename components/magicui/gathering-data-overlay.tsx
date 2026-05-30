@@ -3,33 +3,20 @@
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
 import { WarpBackground } from "@/components/magicui/warp-background";
-import { INK_0, INK_100 } from "@/lib/palette/v2";
+import { INK_100 } from "@/lib/palette/v2";
 import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Card length (width) = 1/10 of original 1500px; height is half → wide rectangle. */
-const EYE_BOX_SCALE = 1 / 10;
-const EYE_BOX_LENGTH_PX = 1500 * EYE_BOX_SCALE;
-const BOX_PADDING_X = 36 * EYE_BOX_SCALE;
-const BOX_PADDING_TOP = 40 * EYE_BOX_SCALE;
-const BOX_PADDING_BOTTOM = 32 * EYE_BOX_SCALE;
-const LOTTIE_INSET_X = 80 * EYE_BOX_SCALE;
-const LOTTIE_INSET_Y = 120 * EYE_BOX_SCALE;
-/** Lottie viewport height = half of square proportion at this width. */
-const LOTTIE_HEIGHT_PX = (EYE_BOX_LENGTH_PX - LOTTIE_INSET_Y) / 2;
+/** Eye viewport — same sizing as 1500px centered build (no surrounding box). */
+const EYE_VIEWPORT_PX = 1500;
 const VIEWPORT_MARGIN_PX = 24;
 
-/**
- * Radial mask on the warp layer: beams only visible near the viewport edges;
- * center stays clear so the solid card can sit over the beam convergence point.
- */
 const WARP_EDGE_MASK =
   "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
 
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
-  const boxLength = `min(${EYE_BOX_LENGTH_PX}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2}px))`;
-  const lottieMaxW = `min(${EYE_BOX_LENGTH_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
+  const lottieMaxW = `min(${EYE_VIEWPORT_PX - 80}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + 80}px))`;
 
   return (
     <AnimatePresence>
@@ -45,7 +32,6 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
           aria-busy="true"
           aria-label="Gathering your data"
         >
-          {/* Beams — full bleed, masked to outer frame only */}
           <div
             className="pointer-events-none absolute inset-0 z-0"
             style={{
@@ -65,25 +51,13 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
             />
           </div>
 
-          {/* Solid card — dead center on screen; eye + label centered inside */}
-          <div
-            className="relative z-20 mx-auto flex flex-col items-center justify-center border border-solid text-center"
-            style={{
-              width: boxLength,
-              maxWidth: boxLength,
-              background: INK_0,
-              borderColor: INK_100,
-              padding: `${BOX_PADDING_TOP}px ${BOX_PADDING_X}px ${BOX_PADDING_BOTTOM}px`,
-              boxShadow: "0 0 40px 20px #000",
-            }}
-          >
+          <div className="relative z-20 mx-auto flex flex-col items-center justify-center px-4 text-center">
             <div
-              className="mx-auto flex w-full items-center justify-center"
+              className="mx-auto flex items-center justify-center"
               style={{
                 width: lottieMaxW,
                 maxWidth: "100%",
-                height: `${LOTTIE_HEIGHT_PX}px`,
-                maxHeight: `${LOTTIE_HEIGHT_PX}px`,
+                height: `min(${EYE_VIEWPORT_PX - 120}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + 140}px))`,
                 filter: "grayscale(1) brightness(1.05)",
               }}
             >
@@ -97,10 +71,10 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               />
             </div>
             <p
-              className="mx-auto mt-3 w-full shrink-0 text-center font-bold uppercase tracking-[0.22em]"
+              className="mx-auto mt-5 shrink-0 whitespace-nowrap text-center font-bold uppercase tracking-[0.22em]"
               style={{
                 color: INK_100,
-                fontSize: "clamp(10px, 1.4vw, 13px)",
+                fontSize: "clamp(14px, 1.6vw, 18px)",
               }}
             >
               Gathering your data
