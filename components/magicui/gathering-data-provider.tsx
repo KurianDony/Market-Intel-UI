@@ -11,7 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { GatheringDataOverlay } from "@/components/magicui/gathering-data-overlay";
 
-const MIN_VISIBLE_MS = 2000;
+const MIN_VISIBLE_MS = 3500;
 
 type GatheringDataContextValue = {
   navigateWithGathering: (href: string) => void;
