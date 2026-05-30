@@ -8,8 +8,13 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Target card size; capped to viewport with margin when smaller. */
-const EYE_BOX_PX = 1500;
+/** Card target = 3/8 of prior 1500px design (~563px). */
+const EYE_BOX_PX = (1500 * 3) / 8;
+const BOX_PADDING_X = 36 * (3 / 8);
+const BOX_PADDING_TOP = 40 * (3 / 8);
+const BOX_PADDING_BOTTOM = 32 * (3 / 8);
+const LOTTIE_INSET_X = 80 * (3 / 8);
+const LOTTIE_INSET_Y = 120 * (3 / 8);
 const VIEWPORT_MARGIN_PX = 24;
 
 /**
@@ -22,7 +27,7 @@ const WARP_EDGE_MASK =
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
   const boxMaxW = `min(${EYE_BOX_PX}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2}px))`;
   const boxMaxH = `min(${EYE_BOX_PX}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2}px))`;
-  const lottieMaxW = `min(${EYE_BOX_PX - 80}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + 80}px))`;
+  const lottieMaxW = `min(${EYE_BOX_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
 
   return (
     <AnimatePresence>
@@ -67,8 +72,8 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               maxHeight: boxMaxH,
               background: INK_0,
               borderColor: INK_100,
-              padding: "40px 36px 32px",
-              boxShadow: "0 0 100px 50px #000",
+              padding: `${BOX_PADDING_TOP}px ${BOX_PADDING_X}px ${BOX_PADDING_BOTTOM}px`,
+              boxShadow: "0 0 40px 20px #000",
             }}
           >
             <div
@@ -76,7 +81,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               style={{
                 width: lottieMaxW,
                 maxWidth: "100%",
-                height: `min(${EYE_BOX_PX - 120}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + 140}px))`,
+                height: `min(${EYE_BOX_PX - LOTTIE_INSET_Y}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_Y + 20}px))`,
                 filter: "grayscale(1) brightness(1.05)",
               }}
             >
@@ -90,10 +95,10 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               />
             </div>
             <p
-              className="mx-auto mt-5 w-full shrink-0 text-center font-bold uppercase tracking-[0.22em]"
+              className="mx-auto mt-3 w-full shrink-0 text-center font-bold uppercase tracking-[0.22em]"
               style={{
                 color: INK_100,
-                fontSize: "clamp(14px, 1.6vw, 18px)",
+                fontSize: "clamp(10px, 1.4vw, 13px)",
               }}
             >
               Gathering your data
