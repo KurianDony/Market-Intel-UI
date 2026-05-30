@@ -68,3 +68,4 @@
 | 2026-05-30 03:00 | feat(ui) | Loader ~3× card, 3.5s minimum duration, slower warp beams (`beamDuration` 4.5). |
 | 2026-05-30 03:30 | feat(ui) | Loader 1500px centered card; flex-centered overlay + in-box eye/label. |
 | 2026-05-30 04:00 | feat(ui) | Loader card scaled to 3/8 (~563px), padding/Lottie/label scaled; still flex-centered. |
+| 2026-05-30 04:15 | feat(ui) | Loader card scaled to 1/10 of 1500px design (~150px). |

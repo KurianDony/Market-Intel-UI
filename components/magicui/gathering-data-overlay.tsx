@@ -8,13 +8,14 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Card target = 3/8 of prior 1500px design (~563px). */
-const EYE_BOX_PX = (1500 * 3) / 8;
-const BOX_PADDING_X = 36 * (3 / 8);
-const BOX_PADDING_TOP = 40 * (3 / 8);
-const BOX_PADDING_BOTTOM = 32 * (3 / 8);
-const LOTTIE_INSET_X = 80 * (3 / 8);
-const LOTTIE_INSET_Y = 120 * (3 / 8);
+/** Card target = 1/10 of original 1500px design (150px). */
+const EYE_BOX_SCALE = 1 / 10;
+const EYE_BOX_PX = 1500 * EYE_BOX_SCALE;
+const BOX_PADDING_X = 36 * EYE_BOX_SCALE;
+const BOX_PADDING_TOP = 40 * EYE_BOX_SCALE;
+const BOX_PADDING_BOTTOM = 32 * EYE_BOX_SCALE;
+const LOTTIE_INSET_X = 80 * EYE_BOX_SCALE;
+const LOTTIE_INSET_Y = 120 * EYE_BOX_SCALE;
 const VIEWPORT_MARGIN_PX = 24;
 
 /**
