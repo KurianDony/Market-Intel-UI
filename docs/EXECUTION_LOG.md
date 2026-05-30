@@ -56,3 +56,4 @@
 | 2026-05-30 13:00 | fix(map) | Hide non-active areas on drill; suburb divIcon labels; suburb-click zooms, See-data navigates. |
 | 2026-05-30 14:30 | fix(map) | Hover-only suburb labels; tight suburb-focus zoom + dim siblings; areas visibility:hidden when drilled. |
 | 2026-05-30 15:45 | fix(map) | Suburb re-focus (dim siblings stay clickable); suppress SVG glow during zoom; zoom bottom-right; NSW label. |
+| 2026-05-30 16:30 | fix(map) | Dimmed-but-visible neighbours at suburb focus (stroke 0.3); ease focus zoom padding 120 + maxZoom 14. |

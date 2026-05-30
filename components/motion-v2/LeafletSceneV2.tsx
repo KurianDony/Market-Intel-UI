@@ -62,14 +62,16 @@ const ACTIVE_AREA_OUTLINE: L.PathOptions = {
   dashArray: "4 4",
 };
 
-const FOCUS_FLY_PADDING: [number, number] = [40, 40];
+const FOCUS_FLY_PADDING: [number, number] = [120, 120];
+/** Cap focus zoom so dimmed neighbours stay in view around the focused suburb. */
+const FOCUS_MAX_ZOOM = 14;
 
 const SUBURB_DIMMED: L.PathOptions = {
   color: WHITE,
   weight: 1,
-  opacity: 0.12,
+  opacity: 0.3,
   fillColor: WHITE,
-  fillOpacity: 0.01,
+  fillOpacity: 0.04,
 };
 
 const SUBURB_FOCUSED: L.PathOptions = {
@@ -646,6 +648,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
         map.flyToBounds(L.geoJSON(feature).getBounds(), {
           padding: FOCUS_FLY_PADDING,
+          maxZoom: FOCUS_MAX_ZOOM,
           duration: 1.2,
           easeLinearity: 0.25,
         });
@@ -730,6 +733,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
         map.flyToBounds(bounds, {
           padding: FOCUS_FLY_PADDING,
+          maxZoom: FOCUS_MAX_ZOOM,
           duration: 1.2,
           easeLinearity: 0.25,
         });
