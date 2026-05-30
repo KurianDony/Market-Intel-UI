@@ -66,6 +66,9 @@ const FOCUS_FLY_PADDING: [number, number] = [120, 120];
 /** Cap focus zoom so dimmed neighbours stay in view around the focused suburb. */
 const FOCUS_MAX_ZOOM = 14;
 
+/** Clip/simplify vector paths — lighter SVG during pan/zoom. */
+const GEO_SMOOTH_FACTOR = 2.5;
+
 const SUBURB_DIMMED: L.PathOptions = {
   color: WHITE,
   weight: 1,
@@ -101,6 +104,13 @@ function propsToSuburb(p: Suburb): Suburb {
   return p;
 }
 
+function featureBboxArea(feature: GeoJSON.Feature): number {
+  const bounds = L.geoJSON(feature).getBounds();
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+  return (ne.lat - sw.lat) * (ne.lng - sw.lng);
+}
+
 export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
   function LeafletSceneV2({ onAreaClick, onSuburbClick }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -117,6 +127,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     const levelRef = useRef<"state" | "area" | "suburb">("state");
     const activeAreaNameRef = useRef<string | null>(null);
     const activeSuburbSlugRef = useRef<string | null>(null);
+    const flyCompleteHandlerRef = useRef<(() => void) | null>(null);
 
     const onAreaClickRef = useRef(onAreaClick);
     const onSuburbClickRef = useRef(onSuburbClick);
@@ -130,16 +141,29 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       count: number;
     } | null>(null);
 
-    const [suburbHoverTooltip, setSuburbHoverTooltip] = useState<{
-      pageX: number;
-      pageY: number;
-      name: string;
-    } | null>(null);
-
     const dismissTooltips = () => {
       setAreaHoverTooltip(null);
-      setSuburbHoverTooltip(null);
     };
+
+    function cancelPendingSuburbReveal(map: L.Map) {
+      if (flyCompleteHandlerRef.current) {
+        map.off("moveend", flyCompleteHandlerRef.current);
+        flyCompleteHandlerRef.current = null;
+      }
+    }
+
+    function revealSuburbsAfterFly(map: L.Map, areaName: string) {
+      cancelPendingSuburbReveal(map);
+      const handler = () => {
+        cancelPendingSuburbReveal(map);
+        if (levelRef.current === "area" && activeAreaNameRef.current === areaName) {
+          showSuburbsForArea(map, areaName);
+          restorePathGlows();
+        }
+      };
+      flyCompleteHandlerRef.current = handler;
+      map.on("moveend", handler);
+    }
 
     function setMapZooming(zooming: boolean) {
       isZoomingRef.current = zooming;
@@ -170,10 +194,12 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       return { ...HIDDEN_AREA };
     }
 
-    function suburbLabelIcon(name: string): L.DivIcon {
+    function suburbLabelIcon(name: string, prominent = false): L.DivIcon {
+      const fontSize = prominent ? "11px" : "9px";
+      const fontWeight = prominent ? "700" : "600";
       return L.divIcon({
         className: "suburb-label-icon",
-        html: `<div style="color:#fff;font-size:10px;font-weight:600;text-shadow:0 0 4px #000,0 0 4px #000;white-space:nowrap;text-align:center;transform:translateX(-50%);pointer-events:none">${name}</div>`,
+        html: `<div style="color:#fff;font-size:${fontSize};font-weight:${fontWeight};text-shadow:0 0 4px #000,0 0 4px #000;white-space:nowrap;text-align:center;transform:translateX(-50%);pointer-events:none">${name}</div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
@@ -186,7 +212,42 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       }
     }
 
-    /** Persistent label — focused suburb only (not hover). */
+    /** Persistent area-level labels with size + collision declutter. */
+    function addAreaSuburbLabels(
+      map: L.Map,
+      features: GeoJSON.Feature[],
+      focusedSlug: string | null,
+    ) {
+      clearSuburbLabels(map);
+      const group = L.layerGroup();
+      const ranked = [...features].sort(
+        (a, b) => featureBboxArea(b) - featureBboxArea(a),
+      );
+      const cap =
+        ranked.length > 45 ? Math.ceil(ranked.length * 0.62) : ranked.length;
+      const placed: { x: number; y: number }[] = [];
+      const minDistPx = 34;
+
+      for (const f of ranked.slice(0, cap)) {
+        const props = f.properties as { name: string; slug: string };
+        const center = L.geoJSON(f).getBounds().getCenter();
+        const pt = map.latLngToContainerPoint(center);
+        const prominent = props.slug === focusedSlug;
+        const crowded = placed.some(
+          p => Math.hypot(p.x - pt.x, p.y - pt.y) < minDistPx,
+        );
+        if (crowded && !prominent) continue;
+        placed.push({ x: pt.x, y: pt.y });
+        L.marker(center, {
+          icon: suburbLabelIcon(props.name, prominent),
+          interactive: false,
+        }).addTo(group);
+      }
+      group.addTo(map);
+      suburbLabelLayerRef.current = group;
+    }
+
+    /** Persistent label — focused suburb only (suburb focus level). */
     function setFocusedSuburbLabel(map: L.Map, feature: GeoJSON.Feature | null) {
       clearSuburbLabels(map);
       if (!feature) return;
@@ -194,7 +255,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       const center = L.geoJSON(feature).getBounds().getCenter();
       const group = L.layerGroup();
       L.marker(center, {
-        icon: suburbLabelIcon(name),
+        icon: suburbLabelIcon(name, true),
         interactive: false,
       }).addTo(group);
       group.addTo(map);
@@ -247,10 +308,15 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       );
 
       const geoRenderer = svgRendererRef.current ?? undefined;
+      const geoOpts = {
+        smoothFactor: GEO_SMOOTH_FACTOR,
+        ...(geoRenderer ? { renderer: geoRenderer } : {}),
+      } as L.GeoJSONOptions;
+
       suburbLayerRef.current = L.geoJSON(
         { type: "FeatureCollection", features: filtered } as GeoJSON.FeatureCollection,
         {
-          ...(geoRenderer ? ({ renderer: geoRenderer } as L.GeoJSONOptions) : {}),
+          ...geoOpts,
           style: f =>
             suburbStyle(
               f as GeoJSON.Feature,
@@ -265,10 +331,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
               const path = pathLayer.getElement?.() as SVGPathElement | undefined;
               if (path) {
                 path.classList.add("suburb-tile");
-                path.style.filter = GLOW;
+                if (!isZoomingRef.current) path.style.filter = GLOW;
               }
             });
-            layer.on("mouseover", e => {
+            layer.on("mouseover", () => {
               if (levelRef.current !== "area") return;
               pathLayer.setStyle(
                 suburbStyle(
@@ -280,22 +346,6 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
               );
               const path = pathLayer.getElement?.() as SVGPathElement | undefined;
               applyGlow(path, true);
-              const suburbName = (feat.properties as { name: string }).name;
-              const oe = e.originalEvent as MouseEvent;
-              setSuburbHoverTooltip({
-                pageX: oe.pageX + 14,
-                pageY: oe.pageY - 12,
-                name: suburbName,
-              });
-            });
-            layer.on("mousemove", e => {
-              if (levelRef.current !== "area") return;
-              const oe = e.originalEvent as MouseEvent;
-              setSuburbHoverTooltip(prev =>
-                prev
-                  ? { ...prev, pageX: oe.pageX + 14, pageY: oe.pageY - 12 }
-                  : null,
-              );
             });
             layer.on("mouseout", () => {
               if (levelRef.current !== "area") return;
@@ -310,7 +360,6 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
               const path = pathLayer.getElement?.() as SVGPathElement | undefined;
               applyGlow(path, false);
               if (path) path.style.strokeWidth = "1.6";
-              setSuburbHoverTooltip(null);
             });
             layer.on("click", () => {
               const p = feat.properties as Suburb;
@@ -328,6 +377,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           },
         },
       ).addTo(map);
+
+      if (levelRef.current === "area") {
+        addAreaSuburbLabels(map, filtered, activeSuburbSlugRef.current);
+      }
     }
 
     /** Per-suburb style + glow + interactivity — dim siblings at suburb focus. */
@@ -424,7 +477,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
     useEffect(() => {
       if (!containerRef.current || mapRef.current) return;
 
-      const svgRenderer = L.svg({ padding: 2 });
+      const svgRenderer = L.svg({ padding: 4 });
       svgRendererRef.current = svgRenderer;
 
       const map = L.map(containerRef.current, {
@@ -489,7 +542,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
             );
 
             areaLayerRef.current = L.geoJSON(nswAreas as GeoJSON.Feature[], {
-              ...( { renderer: svgRenderer } as L.GeoJSONOptions ),
+              ...({
+                renderer: svgRenderer,
+                smoothFactor: GEO_SMOOTH_FACTOR,
+              } as L.GeoJSONOptions),
               style: f => areaStyle(f as GeoJSON.Feature, "state", null),
               onEachFeature: (f, layer) => {
                 const feat = f as GeoJSON.Feature;
@@ -576,6 +632,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         const map = mapRef.current;
         if (!map) return;
         dismissTooltips();
+        cancelPendingSuburbReveal(map);
         levelRef.current = "state";
         activeAreaNameRef.current = null;
         activeSuburbSlugRef.current = null;
@@ -608,9 +665,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         levelRef.current = "area";
         activeAreaNameRef.current = area.name;
         activeSuburbSlugRef.current = null;
+        clearSuburbLayer(map);
         refreshAreaLayers();
-        showSuburbsForArea(map, area.name);
-        setFocusedSuburbLabel(map, null);
+
+        revealSuburbsAfterFly(map, area.name);
 
         map.flyToBounds(L.geoJSON(feature).getBounds(), {
           padding: [60, 60],
@@ -640,9 +698,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         if (suburb.state === "NSW") {
           if (!suburbLayerRef.current) {
             showSuburbsForArea(map, suburb.area);
+          } else {
+            refreshSuburbLayers();
           }
           refreshAreaLayers();
-          refreshSuburbLayers();
         }
         setFocusedSuburbLabel(map, feature);
 
@@ -672,7 +731,13 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         activeSuburbSlugRef.current = null;
         refreshAreaLayers();
         refreshSuburbLayers();
-        setFocusedSuburbLabel(map, null);
+        if (suburbLayerRef.current) {
+          const filtered =
+            suburbsFCRef.current?.features.filter(
+              f => (f.properties as { area: string }).area === area.name,
+            ) ?? [];
+          addAreaSuburbLabels(map, filtered, null);
+        }
 
         map.flyToBounds(L.geoJSON(feature).getBounds(), {
           padding: [60, 60],
@@ -705,9 +770,10 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         clearSuburbLayer(map);
 
         suburbLayerRef.current = L.geoJSON(feature, {
-          ...(svgRendererRef.current
-            ? ({ renderer: svgRendererRef.current } as L.GeoJSONOptions)
-            : {}),
+          ...({
+            ...(svgRendererRef.current ? { renderer: svgRendererRef.current } : {}),
+            smoothFactor: GEO_SMOOTH_FACTOR,
+          } as L.GeoJSONOptions),
           style: { ...SUBURB_FOCUSED },
           onEachFeature: (f, layer) => {
             layer.on("add", () => {
@@ -784,34 +850,6 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
             >
               {areaHoverTooltip.count} suburbs · click to drill in
             </span>
-          </div>
-        ) : null}
-        {suburbHoverTooltip != null ? (
-          <div
-            className="font-sans"
-            style={{
-              position: "fixed",
-              left: suburbHoverTooltip.pageX,
-              top: suburbHoverTooltip.pageY,
-              zIndex: 1500,
-              pointerEvents: "none",
-              background: INK_0,
-              border: `1px solid ${INK_100}`,
-              borderRadius: 8,
-              padding: "8px 14px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <div
-              style={{
-                color: INK_100,
-                fontWeight: 700,
-                fontSize: 12,
-                letterSpacing: "0.5px",
-              }}
-            >
-              {suburbHoverTooltip.name}
-            </div>
           </div>
         ) : null}
       </>

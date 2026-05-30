@@ -57,3 +57,4 @@
 | 2026-05-30 14:30 | fix(map) | Hover-only suburb labels; tight suburb-focus zoom + dim siblings; areas visibility:hidden when drilled. |
 | 2026-05-30 15:45 | fix(map) | Suburb re-focus (dim siblings stay clickable); suppress SVG glow during zoom; zoom bottom-right; NSW label. |
 | 2026-05-30 16:30 | fix(map) | Dimmed-but-visible neighbours at suburb focus (stroke 0.3); ease focus zoom padding 120 + maxZoom 14. |
+| 2026-05-29 18:00 | fix(map) | Leaflet perf: defer suburbs until fly end, smoothFactor 2.5, SVG padding 4, persistent decluttered labels, cursor z-index 99999. |
