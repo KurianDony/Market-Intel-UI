@@ -66,3 +66,4 @@
 | 2026-05-30 01:30 | feat(ui) | `GatheringDataOverlay` — grayscale WarpBackground + eye-see-you Lottie on See data → dashboard (`dev` only). |
 | 2026-05-30 02:15 | feat(ui) | Loader polish: ~2.5× center card, text inside box, thinner beams (`beamSize` 2), radial edge mask + solid card over warp center. |
 | 2026-05-30 03:00 | feat(ui) | Loader ~3× card, 3.5s minimum duration, slower warp beams (`beamDuration` 4.5). |
+| 2026-05-30 03:30 | feat(ui) | Loader 1500px centered card; flex-centered overlay + in-box eye/label. |

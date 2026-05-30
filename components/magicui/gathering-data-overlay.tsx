@@ -8,23 +8,28 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** ~3× prior card (1050px → 3150px cap; fills viewport on most screens). */
-const EYE_BOX_PX = 3150;
+/** Target card size; capped to viewport with margin when smaller. */
+const EYE_BOX_PX = 1500;
+const VIEWPORT_MARGIN_PX = 24;
 
 /**
  * Radial mask on the warp layer: beams only visible near the viewport edges;
  * center stays clear so the solid card can sit over the beam convergence point.
  */
 const WARP_EDGE_MASK =
-  "radial-gradient(ellipse 58% 54% at 50% 50%, transparent 0%, transparent 48%, black 82%)";
+  "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
 
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
+  const boxMaxW = `min(${EYE_BOX_PX}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2}px))`;
+  const boxMaxH = `min(${EYE_BOX_PX}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2}px))`;
+  const lottieMaxW = `min(${EYE_BOX_PX - 80}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + 80}px))`;
+
   return (
     <AnimatePresence>
       {visible ? (
         <motion.div
           key="gathering-data"
-          className="fixed inset-0 z-[30000] bg-black"
+          className="fixed inset-0 z-[30000] flex items-center justify-center bg-black"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -35,7 +40,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
         >
           {/* Beams — full bleed, masked to outer frame only */}
           <div
-            className="absolute inset-0 z-0"
+            className="pointer-events-none absolute inset-0 z-0"
             style={{
               maskImage: WARP_EDGE_MASK,
               WebkitMaskImage: WARP_EDGE_MASK,
@@ -53,45 +58,46 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
             />
           </div>
 
-          {/* Solid card above beams — covers warp convergence / spawn point */}
-          <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden px-2 py-4">
+          {/* Solid card — dead center on screen; eye + label centered inside */}
+          <div
+            className="relative z-20 mx-auto flex flex-col items-center justify-center border border-solid text-center"
+            style={{
+              width: boxMaxW,
+              maxWidth: boxMaxW,
+              maxHeight: boxMaxH,
+              background: INK_0,
+              borderColor: INK_100,
+              padding: "40px 36px 32px",
+              boxShadow: "0 0 100px 50px #000",
+            }}
+          >
             <div
-              className="flex max-h-[96dvh] flex-col items-center justify-center border border-solid text-center"
+              className="mx-auto flex w-full items-center justify-center"
               style={{
-                width: `min(${EYE_BOX_PX}px, 96vw)`,
+                width: lottieMaxW,
                 maxWidth: "100%",
-                background: INK_0,
-                borderColor: INK_100,
-                padding: "clamp(32px, 5vw, 56px) clamp(28px, 4vw, 48px)",
-                boxShadow: "0 0 120px 60px #000",
+                height: `min(${EYE_BOX_PX - 120}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + 140}px))`,
+                filter: "grayscale(1) brightness(1.05)",
               }}
             >
-              <div
-                className="flex w-full flex-1 min-h-0 items-center justify-center"
-                style={{
-                  width: `min(${EYE_BOX_PX - 96}px, calc(96vw - 96px))`,
-                  maxHeight: "min(78dvh, 2800px)",
-                  filter: "grayscale(1) brightness(1.05)",
-                }}
-              >
-                <Lottie
-                  animationData={eyeSeeYouAnimation}
-                  loop
-                  autoplay
-                  className="h-full w-full max-h-full"
-                  aria-hidden
-                />
-              </div>
-              <p
-                className="mt-4 w-full shrink-0 font-bold uppercase tracking-[0.22em]"
-                style={{
-                  color: INK_100,
-                  fontSize: "clamp(14px, 2.2vw, 20px)",
-                }}
-              >
-                Gathering your data
-              </p>
+              <Lottie
+                animationData={eyeSeeYouAnimation}
+                loop
+                autoplay
+                className="mx-auto h-full w-full"
+                style={{ maxWidth: "100%", maxHeight: "100%" }}
+                aria-hidden
+              />
             </div>
+            <p
+              className="mx-auto mt-5 w-full shrink-0 text-center font-bold uppercase tracking-[0.22em]"
+              style={{
+                color: INK_100,
+                fontSize: "clamp(14px, 1.6vw, 18px)",
+              }}
+            >
+              Gathering your data
+            </p>
           </div>
         </motion.div>
       ) : null}
