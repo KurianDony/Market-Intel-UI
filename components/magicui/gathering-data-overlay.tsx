@@ -76,7 +76,8 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               className="mx-auto mt-5 shrink-0 whitespace-nowrap text-center font-bold uppercase tracking-[0.22em]"
               style={{
                 color: INK_100,
-                fontSize: "clamp(28px, 3.2vw, 36px)",
+                fontSize: "clamp(56px, 6.4vw, 72px)",
+                transform: "translateY(-5%)",
               }}
             >
               Gathering your data
