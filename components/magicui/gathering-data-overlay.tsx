@@ -8,15 +8,17 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Eye viewport — same sizing as 1500px centered build (no surrounding box). */
-const EYE_VIEWPORT_PX = 1500;
+/** Eye viewport — 3× prior 1500px build; no box. */
+const EYE_VIEWPORT_PX = 1500 * 3;
+const LOTTIE_INSET_X = 80 * 3;
+const LOTTIE_INSET_Y = 120 * 3;
 const VIEWPORT_MARGIN_PX = 24;
 
 const WARP_EDGE_MASK =
   "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
 
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
-  const lottieMaxW = `min(${EYE_VIEWPORT_PX - 80}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + 80}px))`;
+  const lottieMaxW = `min(${EYE_VIEWPORT_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
 
   return (
     <AnimatePresence>
@@ -57,7 +59,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               style={{
                 width: lottieMaxW,
                 maxWidth: "100%",
-                height: `min(${EYE_VIEWPORT_PX - 120}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + 140}px))`,
+                height: `min(${EYE_VIEWPORT_PX - LOTTIE_INSET_Y}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_Y + 20}px))`,
                 filter: "grayscale(1) brightness(1.05)",
               }}
             >
@@ -74,7 +76,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               className="mx-auto mt-5 shrink-0 whitespace-nowrap text-center font-bold uppercase tracking-[0.22em]"
               style={{
                 color: INK_100,
-                fontSize: "clamp(14px, 1.6vw, 18px)",
+                fontSize: "clamp(28px, 3.2vw, 36px)",
               }}
             >
               Gathering your data
