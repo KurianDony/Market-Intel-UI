@@ -17,6 +17,13 @@ const VIEWPORT_MARGIN_PX = 24;
 const WARP_EDGE_MASK =
   "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
 
+/** Warp beam tuning — 15% faster sweep; denser bars via beamsPerSide. */
+const WARP_SPEED = 1.15;
+const WARP_BEAMS_PER_SIDE = 12;
+const WARP_BEAM_DURATION = 4.5 / WARP_SPEED;
+const WARP_BEAM_DELAY_MIN = 0.4 / WARP_SPEED;
+const WARP_BEAM_DELAY_MAX = 3.2 / WARP_SPEED;
+
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
   const lottieMaxW = `min(${EYE_VIEWPORT_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
 
@@ -43,11 +50,11 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
           >
             <WarpBackground
               className="absolute inset-0 border-0 p-0"
-              beamsPerSide={8}
+              beamsPerSide={WARP_BEAMS_PER_SIDE}
               beamSize={2}
-              beamDuration={4.5}
-              beamDelayMin={0.4}
-              beamDelayMax={3.2}
+              beamDuration={WARP_BEAM_DURATION}
+              beamDelayMin={WARP_BEAM_DELAY_MIN}
+              beamDelayMax={WARP_BEAM_DELAY_MAX}
               gridColor="rgba(255,255,255,0.08)"
               perspective={120}
             />
