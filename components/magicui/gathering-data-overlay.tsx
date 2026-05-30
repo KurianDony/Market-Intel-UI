@@ -8,10 +8,12 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Eye viewport — 3× prior 1500px build; no box. */
-const EYE_VIEWPORT_PX = 1500 * 3;
-const LOTTIE_INSET_X = 80 * 3;
-const LOTTIE_INSET_Y = 120 * 3;
+/** Eye viewport — 3× base + 25% bump; no box. */
+const EYE_SCALE = 1.25;
+const EYE_VIEWPORT_PX = 1500 * 3 * EYE_SCALE;
+const LOTTIE_INSET_X = 80 * 3 * EYE_SCALE;
+const LOTTIE_INSET_Y = 120 * 3 * EYE_SCALE;
+const LABEL_SCALE = 0.75;
 const VIEWPORT_MARGIN_PX = 24;
 
 const WARP_EDGE_MASK =
@@ -83,7 +85,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               className="mx-auto mt-5 shrink-0 whitespace-nowrap text-center font-bold uppercase tracking-[0.22em]"
               style={{
                 color: INK_100,
-                fontSize: "clamp(56px, 6.4vw, 72px)",
+                fontSize: `clamp(${56 * LABEL_SCALE}px, ${6.4 * LABEL_SCALE}vw, ${72 * LABEL_SCALE}px)`,
                 transform: "translateY(-5%)",
               }}
             >
