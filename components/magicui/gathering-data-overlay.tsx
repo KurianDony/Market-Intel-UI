@@ -8,11 +8,10 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Eye viewport — 3× base × scale; no box. */
-const EYE_SCALE = 1.25 * 1.25 * 1.5 * 4;
-const EYE_VIEWPORT_PX = 1500 * 3 * EYE_SCALE;
-const LOTTIE_INSET_X = 80 * 3 * EYE_SCALE;
-const LOTTIE_INSET_Y = 120 * 3 * EYE_SCALE;
+/** Base eye fills the viewport; visual scale multiplies rendered size (4×). */
+const EYE_VISUAL_SCALE = 4;
+const EYE_BASE_W = `calc(100vw - ${48}px)`;
+const EYE_BASE_H = `calc(100dvh - ${200}px)`;
 /** Label vs 56/6.4/72 base. */
 const LABEL_SCALE = 0.75 * 0.7 * 0.5;
 const VIEWPORT_MARGIN_PX = 24;
@@ -28,14 +27,12 @@ const WARP_BEAM_DELAY_MIN = 0.4 / WARP_SPEED;
 const WARP_BEAM_DELAY_MAX = 3.2 / WARP_SPEED;
 
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
-  const lottieMaxW = `min(${EYE_VIEWPORT_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
-
   return (
     <AnimatePresence>
       {visible ? (
         <motion.div
           key="gathering-data"
-          className="fixed inset-0 z-[30000] flex items-center justify-center bg-black"
+          className="fixed inset-0 z-[30000] flex items-center justify-center overflow-visible bg-black"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -63,13 +60,16 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
             />
           </div>
 
-          <div className="relative z-20 mx-auto flex flex-col items-center justify-center px-4 text-center">
+          <div className="relative z-20 mx-auto flex flex-col items-center justify-center overflow-visible px-4 text-center">
             <div
               className="mx-auto flex items-center justify-center"
               style={{
-                width: lottieMaxW,
-                maxWidth: "100%",
-                height: `min(${EYE_VIEWPORT_PX - LOTTIE_INSET_Y}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_Y + 20}px))`,
+                width: EYE_BASE_W,
+                height: EYE_BASE_H,
+                maxWidth: EYE_BASE_W,
+                maxHeight: EYE_BASE_H,
+                transform: `scale(${EYE_VISUAL_SCALE})`,
+                transformOrigin: "center center",
                 filter: "grayscale(1) brightness(1.05)",
               }}
             >
@@ -83,7 +83,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               />
             </div>
             <p
-              className="mx-auto mt-5 shrink-0 whitespace-nowrap text-center font-bold uppercase tracking-[0.22em]"
+              className="relative z-30 mx-auto mt-8 shrink-0 whitespace-nowrap text-center font-bold uppercase tracking-[0.22em]"
               style={{
                 color: INK_100,
                 fontSize: `clamp(${56 * LABEL_SCALE}px, ${6.4 * LABEL_SCALE}vw, ${72 * LABEL_SCALE}px)`,
