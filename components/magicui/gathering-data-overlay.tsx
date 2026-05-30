@@ -83,7 +83,7 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               style={{
                 color: INK_100,
                 fontSize: `clamp(${56 * LABEL_SCALE}px, ${6.4 * LABEL_SCALE}vw, ${72 * LABEL_SCALE}px)`,
-                transform: "translateY(-54%)",
+                transform: "translateY(-104%)",
               }}
             >
               Gathering your data
