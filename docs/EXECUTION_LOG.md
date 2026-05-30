@@ -64,3 +64,4 @@
 | 2026-05-29 23:15 | fix(map) | Clear `dashArray` on all area paths when returning to state level (solid outlines). |
 | 2026-05-30 00:00 | fix(map) | Reliable state-level solid areas: `dashArray: null`, post-zoom refresh, recreate area GeoJSON on Back. |
 | 2026-05-30 01:30 | feat(ui) | `GatheringDataOverlay` — grayscale WarpBackground + eye-see-you Lottie on See data → dashboard (`dev` only). |
+| 2026-05-30 02:15 | feat(ui) | Loader polish: ~2.5× center card, text inside box, thinner beams (`beamSize` 2), radial edge mask + solid card over warp center. |
