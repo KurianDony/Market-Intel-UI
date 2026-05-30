@@ -1,0 +1,23 @@
+---
+description: Always push verified work to main so Vercel production deploys
+alwaysApply: true
+---
+
+# Production deploy — always push main
+
+**Live:** marketmeerkat.guru · **Branch:** `main` · **Host:** Vercel Production (auto-deploy on push)
+
+## Default completion for shipping tasks
+
+After verified changes (commit requested, fix, feature, or "push main"):
+
+1. `npm run verify` — must pass before push
+2. Commit on `main`
+3. **`git push origin main`** — required unless user explicitly says not to
+4. Confirm: `git status` → "up to date with origin/main"
+
+Never end a shipping task with commits only on the local machine.
+
+## Exceptions
+
+Skip push only when the user explicitly says: hold, local only, don't push, or draft/WIP.

@@ -34,6 +34,16 @@ When the active phase is complete, say: "Phase X complete. Awaiting Phase X+1 br
 
 ## Never
 - Add a dependency without flagging it.
-- Push to `main` without confirming local build passes.
 - Hard-code suburb names or slugs.
 - Skip a step in BUILD_PLAN.md without escalating.
+
+## Production deploy (always)
+Live site: **marketmeerkat.guru** — Vercel **Production** deploys from **`main`** on every push to `origin/main`.
+
+When the user asks to ship, commit, fix production, or complete a verified task:
+1. Run `npm run verify` (must pass).
+2. Commit on `main`.
+3. **`git push origin main` every time** — do not leave verified commits local-only.
+4. Confirm push succeeded (`git status` shows up to date with `origin/main`).
+
+Only skip push if the user explicitly says hold / local-only / no push. Pushing to `main` is the default completion step for all production-facing work.
