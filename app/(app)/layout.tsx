@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { GatheringDataProvider } from "@/components/magicui/gathering-data-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -15,7 +16,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
       className={`${inter.variable} ${jetbrains.variable} font-sans`}
       style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
     >
-      {children}
+      <GatheringDataProvider>{children}</GatheringDataProvider>
     </div>
   );
 }
