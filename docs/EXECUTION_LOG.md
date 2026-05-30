@@ -61,3 +61,4 @@
 | 2026-05-29 19:30 | chore(release) | Tagged `v0.1-map-working` on main; created `dev` branch. Workflow: feature/fix on `dev` (Vercel Preview) → merge to `main` when verified (production) → annotated tag per release (`v0.2`, …). |
 | 2026-05-29 21:00 | feat(map) | WarpBackground transition mask on drill/back; `@turf/point-on-feature` visual-centroid suburb labels. |
 | 2026-05-29 22:30 | feat(map) | Uniform CSS blur on `.leaflet-container` during zoom/fly; dropped WarpBackground map overlay (kept for future See-data hop). |
+| 2026-05-29 23:15 | fix(map) | Clear `dashArray` on all area paths when returning to state level (solid outlines). |

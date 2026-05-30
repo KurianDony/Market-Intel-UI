@@ -44,6 +44,12 @@ const AREA_BASE: L.PathOptions = {
   fillOpacity: 0.08,
 };
 
+/** State view — explicit dash clear (Leaflet merges setStyle; drill dash can stick). */
+const AREA_STATE_SOLID: L.PathOptions = {
+  ...AREA_BASE,
+  dashArray: undefined,
+};
+
 const SUBURB_BASE: L.PathOptions = {
   color: WHITE,
   weight: 1.6,
@@ -226,9 +232,21 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       activeArea: string | null,
     ): L.PathOptions {
       const name = (feature.properties as { name: string }).name;
-      if (level === "state") return { ...AREA_BASE };
+      if (level === "state") return { ...AREA_STATE_SOLID };
       if (name === activeArea) return { ...ACTIVE_AREA_OUTLINE };
       return { ...HIDDEN_AREA };
+    }
+
+    function resetAreaPathToStateSolid(
+      pathLayer: L.Path,
+      path: SVGPathElement | undefined,
+    ) {
+      pathLayer.setStyle({ ...AREA_STATE_SOLID });
+      pathLayer.options.dashArray = undefined;
+      if (path) {
+        path.style.strokeDasharray = "";
+        path.removeAttribute("stroke-dasharray");
+      }
     }
 
     function suburbLabelIcon(name: string, prominent = false): L.DivIcon {
@@ -480,7 +498,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         const path = pathLayer.getElement?.() as SVGPathElement | undefined;
 
         if (level === "state") {
-          pathLayer.setStyle({ ...AREA_BASE });
+          resetAreaPathToStateSolid(pathLayer, path);
           pathLayer.options.interactive = true;
           if (path) {
             path.style.pointerEvents = "";
