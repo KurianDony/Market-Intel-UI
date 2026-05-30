@@ -9,7 +9,7 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 /** Eye viewport — 3× base × scale; no box. */
-const EYE_SCALE = 1.25 * 1.25 * 1.5;
+const EYE_SCALE = 1.25 * 1.25 * 1.5 * 4;
 const EYE_VIEWPORT_PX = 1500 * 3 * EYE_SCALE;
 const LOTTIE_INSET_X = 80 * 3 * EYE_SCALE;
 const LOTTIE_INSET_Y = 120 * 3 * EYE_SCALE;
