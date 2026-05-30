@@ -8,14 +8,16 @@ import eyeSeeYouAnimation from "@/public/lottie/eye-see-you.json";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
-/** Card target = 1/10 of original 1500px design (150px). */
+/** Card length (width) = 1/10 of original 1500px; height is half → wide rectangle. */
 const EYE_BOX_SCALE = 1 / 10;
-const EYE_BOX_PX = 1500 * EYE_BOX_SCALE;
+const EYE_BOX_LENGTH_PX = 1500 * EYE_BOX_SCALE;
 const BOX_PADDING_X = 36 * EYE_BOX_SCALE;
 const BOX_PADDING_TOP = 40 * EYE_BOX_SCALE;
 const BOX_PADDING_BOTTOM = 32 * EYE_BOX_SCALE;
 const LOTTIE_INSET_X = 80 * EYE_BOX_SCALE;
 const LOTTIE_INSET_Y = 120 * EYE_BOX_SCALE;
+/** Lottie viewport height = half of square proportion at this width. */
+const LOTTIE_HEIGHT_PX = (EYE_BOX_LENGTH_PX - LOTTIE_INSET_Y) / 2;
 const VIEWPORT_MARGIN_PX = 24;
 
 /**
@@ -26,9 +28,8 @@ const WARP_EDGE_MASK =
   "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
 
 export function GatheringDataOverlay({ visible }: { visible: boolean }) {
-  const boxMaxW = `min(${EYE_BOX_PX}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2}px))`;
-  const boxMaxH = `min(${EYE_BOX_PX}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2}px))`;
-  const lottieMaxW = `min(${EYE_BOX_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
+  const boxLength = `min(${EYE_BOX_LENGTH_PX}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2}px))`;
+  const lottieMaxW = `min(${EYE_BOX_LENGTH_PX - LOTTIE_INSET_X}px, calc(100vw - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_X}px))`;
 
   return (
     <AnimatePresence>
@@ -68,9 +69,8 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
           <div
             className="relative z-20 mx-auto flex flex-col items-center justify-center border border-solid text-center"
             style={{
-              width: boxMaxW,
-              maxWidth: boxMaxW,
-              maxHeight: boxMaxH,
+              width: boxLength,
+              maxWidth: boxLength,
               background: INK_0,
               borderColor: INK_100,
               padding: `${BOX_PADDING_TOP}px ${BOX_PADDING_X}px ${BOX_PADDING_BOTTOM}px`,
@@ -82,7 +82,8 @@ export function GatheringDataOverlay({ visible }: { visible: boolean }) {
               style={{
                 width: lottieMaxW,
                 maxWidth: "100%",
-                height: `min(${EYE_BOX_PX - LOTTIE_INSET_Y}px, calc(100dvh - ${VIEWPORT_MARGIN_PX * 2 + LOTTIE_INSET_Y + 20}px))`,
+                height: `${LOTTIE_HEIGHT_PX}px`,
+                maxHeight: `${LOTTIE_HEIGHT_PX}px`,
                 filter: "grayscale(1) brightness(1.05)",
               }}
             >
