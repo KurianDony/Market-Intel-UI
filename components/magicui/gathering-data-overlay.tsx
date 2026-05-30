@@ -12,8 +12,8 @@ const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 const EYE_SIZE = "min(92vw, 72dvh)";
 const VIEWPORT_MARGIN_PX = 24;
 
-/** Label vs 56/6.4/72 base. */
-const LABEL_SCALE = 0.75 * 0.7 * 0.5;
+/** Label vs 56/6.4/72 base (+20% size vs prior). */
+const LABEL_SCALE = 0.75 * 0.7 * 0.5 * 1.2;
 
 const WARP_EDGE_MASK =
   "radial-gradient(ellipse 52% 48% at 50% 50%, transparent 0%, transparent 44%, black 80%)";
