@@ -6,6 +6,10 @@ import type { LeafletSceneHandle, Area, Suburb } from "./types";
 import { ACCENT_RED, AREA_COLOR_BY_NAME, INK_0, INK_10, INK_40, INK_80, INK_100 } from "@/lib/palette/v2";
 import { SuburbSearchV2 } from "./SuburbSearchV2";
 import { SeeDataLink } from "./SeeDataLink";
+import {
+  TransitionMaskOverlay,
+  useTransitionMask,
+} from "@/components/magicui/transition-mask-overlay";
 
 type StateKey = "NSW" | "QLD" | "TAS";
 type Level = "state" | "area" | "suburb";
@@ -30,6 +34,7 @@ export function MotionPrototypeV2() {
   const [activeSuburb, setActiveSuburb] = useState<Suburb | null>(null);
 
   const mapRef = useRef<LeafletSceneHandle>(null);
+  const transitionMask = useTransitionMask();
 
   const colorFor = useCallback((areaName: string) => AREA_COLOR_BY_NAME[areaName] ?? INK_100, []);
 
@@ -158,10 +163,13 @@ export function MotionPrototypeV2() {
 
   return (
     <div className="relative w-full h-dvh overflow-hidden bg-[#000000] text-[#ffffff]">
+      <TransitionMaskOverlay visible={transitionMask.visible} />
       <LeafletSceneV2
         ref={mapRef}
         onAreaClick={handleAreaClick}
         onSuburbClick={handleSuburbClick}
+        onTransitionStart={transitionMask.begin}
+        onTransitionEnd={transitionMask.end}
       />
 
       {/* Top-right: suburb search */}
@@ -209,6 +217,7 @@ export function MotionPrototypeV2() {
           stateKey={stateKey}
           area={activeArea}
           suburb={activeSuburb}
+          onNavigateStart={transitionMask.begin}
         />
       )}
 

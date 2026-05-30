@@ -11,6 +11,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./leaflet-v2.css";
 import { INK_0, INK_100, INK_60 } from "@/lib/palette/v2";
+import { featureLabelCenter } from "@/lib/geo/feature-label-center";
 import {
   EXCLUDED_NSW_AREAS,
   type Area,
@@ -69,6 +70,8 @@ const FOCUS_MAX_ZOOM = 14;
 /** Clip/simplify vector paths — lighter SVG during pan/zoom. */
 const GEO_SMOOTH_FACTOR = 2.5;
 
+const TRANSITION_MASK_END_MS = 150;
+
 const SUBURB_DIMMED: L.PathOptions = {
   color: WHITE,
   weight: 1,
@@ -88,6 +91,8 @@ const SUBURB_FOCUSED: L.PathOptions = {
 interface Props {
   onAreaClick: (area: Area) => void;
   onSuburbClick: (suburb: Suburb) => void;
+  onTransitionStart?: () => void;
+  onTransitionEnd?: () => void;
 }
 
 function applyGlow(path: SVGPathElement | null | undefined, hover: boolean) {
@@ -111,8 +116,16 @@ function featureBboxArea(feature: GeoJSON.Feature): number {
   return (ne.lat - sw.lat) * (ne.lng - sw.lng);
 }
 
+function featureToLatLng(feature: GeoJSON.Feature): L.LatLng {
+  const [lng, lat] = featureLabelCenter(feature);
+  return L.latLng(lat, lng);
+}
+
 export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
-  function LeafletSceneV2({ onAreaClick, onSuburbClick }, ref) {
+  function LeafletSceneV2(
+    { onAreaClick, onSuburbClick, onTransitionStart, onTransitionEnd },
+    ref,
+  ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<L.Map | null>(null);
     const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -131,8 +144,29 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
     const onAreaClickRef = useRef(onAreaClick);
     const onSuburbClickRef = useRef(onSuburbClick);
+    const onTransitionStartRef = useRef(onTransitionStart);
+    const onTransitionEndRef = useRef(onTransitionEnd);
     onAreaClickRef.current = onAreaClick;
     onSuburbClickRef.current = onSuburbClick;
+    onTransitionStartRef.current = onTransitionStart;
+    onTransitionEndRef.current = onTransitionEnd;
+
+    function flyWithTransitionMask(map: L.Map, fly: () => void) {
+      onTransitionStartRef.current?.();
+      let settled = false;
+      const onSettle = () => {
+        if (settled) return;
+        settled = true;
+        map.off("moveend", onSettle);
+        map.off("zoomend", onSettle);
+        window.setTimeout(() => {
+          onTransitionEndRef.current?.();
+        }, TRANSITION_MASK_END_MS);
+      };
+      map.on("moveend", onSettle);
+      map.on("zoomend", onSettle);
+      fly();
+    }
 
     const [areaHoverTooltip, setAreaHoverTooltip] = useState<{
       pageX: number;
@@ -199,7 +233,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       const fontWeight = prominent ? "700" : "600";
       return L.divIcon({
         className: "suburb-label-icon",
-        html: `<div style="color:#fff;font-size:${fontSize};font-weight:${fontWeight};text-shadow:0 0 4px #000,0 0 4px #000;white-space:nowrap;text-align:center;transform:translateX(-50%);pointer-events:none">${name}</div>`,
+        html: `<div style="color:#fff;font-size:${fontSize};font-weight:${fontWeight};text-shadow:0 0 4px #000,0 0 4px #000;white-space:nowrap;text-align:center;transform:translate(-50%,-50%);pointer-events:none">${name}</div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       });
@@ -230,7 +264,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
       for (const f of ranked.slice(0, cap)) {
         const props = f.properties as { name: string; slug: string };
-        const center = L.geoJSON(f).getBounds().getCenter();
+        const center = featureToLatLng(f);
         const pt = map.latLngToContainerPoint(center);
         const prominent = props.slug === focusedSlug;
         const crowded = placed.some(
@@ -252,7 +286,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       clearSuburbLabels(map);
       if (!feature) return;
       const name = (feature.properties as { name: string }).name;
-      const center = L.geoJSON(feature).getBounds().getCenter();
+      const center = featureToLatLng(feature);
       const group = L.layerGroup();
       L.marker(center, {
         icon: suburbLabelIcon(name, true),
@@ -641,10 +675,12 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           areaLayerRef.current.addTo(map);
         }
         refreshAreaLayers();
-        map.flyToBounds(STATE_BOUNDS.NSW, {
-          padding: [10, 10],
-          duration: 1.4,
-          easeLinearity: 0.25,
+        flyWithTransitionMask(map, () => {
+          map.flyToBounds(STATE_BOUNDS.NSW, {
+            padding: [10, 10],
+            duration: 1.4,
+            easeLinearity: 0.25,
+          });
         });
       },
 
@@ -670,10 +706,12 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
 
         revealSuburbsAfterFly(map, area.name);
 
-        map.flyToBounds(L.geoJSON(feature).getBounds(), {
-          padding: [60, 60],
-          duration: 1.4,
-          easeLinearity: 0.25,
+        flyWithTransitionMask(map, () => {
+          map.flyToBounds(L.geoJSON(feature).getBounds(), {
+            padding: [60, 60],
+            duration: 1.4,
+            easeLinearity: 0.25,
+          });
         });
       },
 
@@ -705,11 +743,13 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         }
         setFocusedSuburbLabel(map, feature);
 
-        map.flyToBounds(L.geoJSON(feature).getBounds(), {
-          padding: FOCUS_FLY_PADDING,
-          maxZoom: FOCUS_MAX_ZOOM,
-          duration: 1.2,
-          easeLinearity: 0.25,
+        flyWithTransitionMask(map, () => {
+          map.flyToBounds(L.geoJSON(feature).getBounds(), {
+            padding: FOCUS_FLY_PADDING,
+            maxZoom: FOCUS_MAX_ZOOM,
+            duration: 1.2,
+            easeLinearity: 0.25,
+          });
         });
       },
 
@@ -739,10 +779,12 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
           addAreaSuburbLabels(map, filtered, null);
         }
 
-        map.flyToBounds(L.geoJSON(feature).getBounds(), {
-          padding: [60, 60],
-          duration: 1.0,
-          easeLinearity: 0.25,
+        flyWithTransitionMask(map, () => {
+          map.flyToBounds(L.geoJSON(feature).getBounds(), {
+            padding: [60, 60],
+            duration: 1.0,
+            easeLinearity: 0.25,
+          });
         });
       },
 
@@ -797,11 +839,13 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
               ? STATE_BOUNDS.TAS
               : L.geoJSON(feature).getBounds();
 
-        map.flyToBounds(bounds, {
-          padding: FOCUS_FLY_PADDING,
-          maxZoom: FOCUS_MAX_ZOOM,
-          duration: 1.2,
-          easeLinearity: 0.25,
+        flyWithTransitionMask(map, () => {
+          map.flyToBounds(bounds, {
+            padding: FOCUS_FLY_PADDING,
+            maxZoom: FOCUS_MAX_ZOOM,
+            duration: 1.2,
+            easeLinearity: 0.25,
+          });
         });
       },
     }));
