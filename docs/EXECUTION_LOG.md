@@ -74,3 +74,4 @@
 | 2026-05-30 05:15 | feat(ui) | Loader: 3× eye viewport, 2× label size, no box. |
 | 2026-05-30 06:00 | fix(ui) | Restore visible eye (`min(92vw,72dvh)`); remove broken scale(4); warp 1.3× speed. |
 | 2026-05-30 06:30 | release | Merged `dev` → `main` — GatheringData loader + map fixes live on marketmeerkat.guru. |
+| 2026-05-31 02:22 | auth gate | Flipped lib/supabase/proxy.ts to login-required (public allowlist /auth only; /auth/sign-up → login). Disabled sign-up links; login redirects to /. AuthButton + logout in app layout corner. npm run verify clean; dev preview for login-flow QA. |

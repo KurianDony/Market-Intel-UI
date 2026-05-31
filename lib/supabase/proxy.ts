@@ -47,20 +47,22 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
-  // Public-by-default. The portal is a public-facing rental intelligence site:
-  // home, /motion-prototype, /[state]/[area]/[suburb] data pages, /insights/*,
-  // and auth pages all render without a session. Only routes that contain CDA
-  // operational data require sign-in.
-  const PROTECTED_PREFIXES = [
-    "/protected", // starter-template demo route — keep gated
-    "/cda",       // Phase 6 CDA fork — auth + theme swap
-  ];
+  // Login-required site. Only auth flows stay public so login/password reset
+  // don't redirect-loop. Everything else needs a session.
   const path = request.nextUrl.pathname;
-  const isProtected = PROTECTED_PREFIXES.some(
+
+  if (path === "/auth/sign-up" || path.startsWith("/auth/sign-up/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
+  }
+
+  const PUBLIC_PREFIXES = ["/auth"];
+  const isPublic = PUBLIC_PREFIXES.some(
     (p) => path === p || path.startsWith(p + "/"),
   );
 
-  if (isProtected && !user) {
+  if (!isPublic && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
