@@ -24,12 +24,14 @@ type PeekVariant = {
   scale: number;
 };
 
-/** Full (base) → top-half (+20%) → top-quarter (+50%) → repeat. Scales relative to cycle 1. */
+/** Full (base) → top-half (+20% vs cycle 1) → top-quarter (+50% vs cycle 1). */
 const CYCLE_1_SCALE = 1.8;
+const CYCLE_2_SCALE = CYCLE_1_SCALE * 1.2;
+const CYCLE_3_SCALE = CYCLE_1_SCALE * 1.5;
 const PEEK_VARIANTS: PeekVariant[] = [
   { emergeFraction: 1, scale: CYCLE_1_SCALE },
-  { emergeFraction: 0.5, scale: CYCLE_1_SCALE * 1.2 },
-  { emergeFraction: 0.25, scale: CYCLE_1_SCALE * 1.5 },
+  { emergeFraction: 0.5, scale: CYCLE_2_SCALE },
+  { emergeFraction: 0.25, scale: CYCLE_3_SCALE },
 ];
 
 function randomSpot(): Spot {
