@@ -78,3 +78,4 @@
 | 2026-05-31 02:45 | auth UI | Brutalist B&W /auth pages (black bg, white card/inputs/button). Meerkat peek Lottie on login — greyscale, random edge every 7.5s, behind form. Bundled public/lottie/meerkat-looking-around.json. npm run verify clean; pushed dev. |
 | 2026-05-31 03:10 | auth UI | Meerkat peek refined: edge-matched slide axis + rotation (left/right horizontal, bottom vertical); 3-cycle emerge pattern full(+20%) → half(+50%) → quarter(+100%). npm run verify clean; pushed dev. |
 | 2026-05-31 03:25 | auth UI | Meerkat peek scales ×1.5 on all three emerge cycles (1.8 / 2.25 / 3.0). npm run verify clean; pushed dev. |
+| 2026-05-31 03:40 | auth UI | Session auth chrome auto-dismisses after 10s (sessionStorage, no reappear). Meerkat cycle scales: base 1.8 → +20% (2.16) → +50% (2.7). npm run verify clean; pushed dev. |

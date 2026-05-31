@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AuthButton } from "@/components/auth-button";
+import { SessionAuthChrome } from "@/components/auth/session-auth-chrome";
 import { GatheringDataProvider } from "@/components/magicui/gathering-data-provider";
 import { hasEnvVars } from "@/lib/utils";
 
@@ -21,13 +22,11 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
     >
       <GatheringDataProvider>
         {hasEnvVars ? (
-          <div className="pointer-events-none fixed right-3 top-3 z-[10000]">
-            <div className="pointer-events-auto rounded-md border border-border/60 bg-background/90 px-3 py-2 text-sm shadow-sm backdrop-blur-sm">
-              <Suspense>
-                <AuthButton />
-              </Suspense>
-            </div>
-          </div>
+          <SessionAuthChrome>
+            <Suspense>
+              <AuthButton />
+            </Suspense>
+          </SessionAuthChrome>
         ) : null}
         {children}
       </GatheringDataProvider>
