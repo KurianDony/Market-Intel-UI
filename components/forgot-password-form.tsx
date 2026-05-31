@@ -2,6 +2,17 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import {
+  authButton,
+  authCard,
+  authDescription,
+  authError,
+  authInput,
+  authLabel,
+  authLink,
+  authMuted,
+  authTitle,
+} from "@/lib/auth/theme";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -47,23 +58,25 @@ export function ForgotPasswordForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       {success ? (
-        <Card>
+        <Card className={authCard}>
           <CardHeader>
-            <CardTitle className="text-2xl">Check Your Email</CardTitle>
-            <CardDescription>Password reset instructions sent</CardDescription>
+            <CardTitle className={authTitle}>Check Your Email</CardTitle>
+            <CardDescription className={authDescription}>
+              Password reset instructions sent
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
+            <p className={authMuted}>
               If you registered using your email and password, you will receive
               a password reset email.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className={authCard}>
           <CardHeader>
-            <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-            <CardDescription>
+            <CardTitle className={authTitle}>Reset Your Password</CardTitle>
+            <CardDescription className={authDescription}>
               Type in your email and we&apos;ll send you a link to reset your
               password
             </CardDescription>
@@ -72,7 +85,9 @@ export function ForgotPasswordForm({
             <form onSubmit={handleForgotPassword}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className={authLabel}>
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -80,19 +95,22 @@ export function ForgotPasswordForm({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className={authInput}
                   />
                 </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                {error && <p className={authError}>{error}</p>}
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className={authButton}
+                  disabled={isLoading}
+                >
                   {isLoading ? "Sending..." : "Send reset email"}
                 </Button>
               </div>
-              <div className="mt-4 text-center text-sm">
+              <div className={cn("mt-4 text-center text-sm", authMuted)}>
                 Already have an account?{" "}
-                <Link
-                  href="/auth/login"
-                  className="underline underline-offset-4"
-                >
+                <Link href="/auth/login" className={authLink}>
                   Login
                 </Link>
               </div>

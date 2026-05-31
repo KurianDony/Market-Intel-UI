@@ -2,6 +2,16 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import {
+  authButton,
+  authCard,
+  authDescription,
+  authError,
+  authInput,
+  authLabel,
+  authLink,
+  authTitle,
+} from "@/lib/auth/theme";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -48,10 +58,10 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
+      <Card className={authCard}>
         <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
+          <CardTitle className={authTitle}>Login</CardTitle>
+          <CardDescription className={authDescription}>
             Enter your email below to login to your account
           </CardDescription>
         </CardHeader>
@@ -59,7 +69,9 @@ export function LoginForm({
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className={authLabel}>
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -67,14 +79,17 @@ export function LoginForm({
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className={authInput}
                 />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className={authLabel}>
+                    Password
+                  </Label>
                   <Link
                     href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    className={cn("ml-auto inline-block text-sm", authLink)}
                   >
                     Forgot your password?
                   </Link>
@@ -85,10 +100,16 @@ export function LoginForm({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className={authInput}
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              {error && <p className={authError}>{error}</p>}
+              <Button
+                type="submit"
+                variant="outline"
+                className={authButton}
+                disabled={isLoading}
+              >
                 {isLoading ? "Logging in..." : "Login"}
               </Button>
             </div>

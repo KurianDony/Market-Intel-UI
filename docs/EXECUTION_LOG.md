@@ -75,3 +75,4 @@
 | 2026-05-30 06:00 | fix(ui) | Restore visible eye (`min(92vw,72dvh)`); remove broken scale(4); warp 1.3× speed. |
 | 2026-05-30 06:30 | release | Merged `dev` → `main` — GatheringData loader + map fixes live on marketmeerkat.guru. |
 | 2026-05-31 02:22 | auth gate | Flipped lib/supabase/proxy.ts to login-required (public allowlist /auth only; /auth/sign-up → login). Disabled sign-up links; login redirects to /. AuthButton + logout in app layout corner. npm run verify clean; dev preview for login-flow QA. |
+| 2026-05-31 02:45 | auth UI | Brutalist B&W /auth pages (black bg, white card/inputs/button). Meerkat peek Lottie on login — greyscale, random edge every 7.5s, behind form. Bundled public/lottie/meerkat-looking-around.json. npm run verify clean; pushed dev. |

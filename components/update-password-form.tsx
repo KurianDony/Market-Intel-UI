@@ -2,6 +2,15 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import {
+  authButton,
+  authCard,
+  authDescription,
+  authError,
+  authInput,
+  authLabel,
+  authTitle,
+} from "@/lib/auth/theme";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,10 +53,10 @@ export function UpdatePasswordForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
+      <Card className={authCard}>
         <CardHeader>
-          <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-          <CardDescription>
+          <CardTitle className={authTitle}>Reset Your Password</CardTitle>
+          <CardDescription className={authDescription}>
             Please enter your new password below.
           </CardDescription>
         </CardHeader>
@@ -55,7 +64,9 @@ export function UpdatePasswordForm({
           <form onSubmit={handleForgotPassword}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="password">New password</Label>
+                <Label htmlFor="password" className={authLabel}>
+                  New password
+                </Label>
                 <Input
                   id="password"
                   type="password"
@@ -63,10 +74,16 @@ export function UpdatePasswordForm({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className={authInput}
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              {error && <p className={authError}>{error}</p>}
+              <Button
+                type="submit"
+                variant="outline"
+                className={authButton}
+                disabled={isLoading}
+              >
                 {isLoading ? "Saving..." : "Save new password"}
               </Button>
             </div>
