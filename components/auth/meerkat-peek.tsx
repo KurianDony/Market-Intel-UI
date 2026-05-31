@@ -24,11 +24,11 @@ type PeekVariant = {
   scale: number;
 };
 
-/** Full (+20%) → top-half (+50%) → top-quarter (+100%) → repeat. */
+/** Full (+80%) → top-half (+125%) → top-quarter (+200%) → repeat. Each ×1.5 vs prior tuning. */
 const PEEK_VARIANTS: PeekVariant[] = [
-  { emergeFraction: 1, scale: 1.2 },
-  { emergeFraction: 0.5, scale: 1.5 },
-  { emergeFraction: 0.25, scale: 2 },
+  { emergeFraction: 1, scale: 1.8 },
+  { emergeFraction: 0.5, scale: 2.25 },
+  { emergeFraction: 0.25, scale: 3 },
 ];
 
 function randomSpot(): Spot {
