@@ -81,3 +81,4 @@
 | 2026-05-31 03:40 | auth UI | Session auth chrome auto-dismisses after 10s (sessionStorage, no reappear). Meerkat cycle scales: base 1.8 → +20% (2.16) → +50% (2.7). npm run verify clean; pushed dev. |
 | 2026-05-31 03:50 | auth UI | Meerkat cycle 2/3 scales locked to +20% / +50% vs cycle 1 (2.16 / 2.7). npm run verify clean; pushed dev. |
 | 2026-05-31 04:00 | auth UI | Meerkat cycle 2/3 scales → +30% / +70% vs cycle 1 (2.34 / 3.06). npm run verify clean; pushed dev. |
+| 2026-05-31 04:15 | auth | Tab-scoped sessions via sessionStorage `mm_session_alive` — TabSessionGate signs out on fresh tab; reload keeps session. Login/confirm/password flows set marker. npm run verify clean; pushed dev. |

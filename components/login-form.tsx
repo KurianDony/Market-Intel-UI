@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { markTabSessionAlive } from "@/lib/auth/tab-session";
 import {
   authButton,
   authCard,
@@ -48,6 +49,7 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
+      markTabSessionAlive();
       router.push("/");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");

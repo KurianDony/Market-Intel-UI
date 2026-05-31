@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { TabSessionGate } from "@/components/auth/tab-session-gate";
 import { SmoothCursor } from "@/components/magicui/smooth-cursor";
 import "./globals.css";
 
@@ -35,7 +37,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <Suspense fallback={null}>
+            <TabSessionGate>{children}</TabSessionGate>
+          </Suspense>
         </ThemeProvider>
         <SmoothCursor />
       </body>
