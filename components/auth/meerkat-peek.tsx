@@ -24,10 +24,10 @@ type PeekVariant = {
   scale: number;
 };
 
-/** Full (base) → top-half (+20% vs cycle 1) → top-quarter (+50% vs cycle 1). */
+/** Full (base) → top-half (+30% vs cycle 1) → top-quarter (+70% vs cycle 1). */
 const CYCLE_1_SCALE = 1.8;
-const CYCLE_2_SCALE = CYCLE_1_SCALE * 1.2;
-const CYCLE_3_SCALE = CYCLE_1_SCALE * 1.5;
+const CYCLE_2_SCALE = CYCLE_1_SCALE * 1.3;
+const CYCLE_3_SCALE = CYCLE_1_SCALE * 1.7;
 const PEEK_VARIANTS: PeekVariant[] = [
   { emergeFraction: 1, scale: CYCLE_1_SCALE },
   { emergeFraction: 0.5, scale: CYCLE_2_SCALE },

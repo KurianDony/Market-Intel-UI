@@ -80,3 +80,4 @@
 | 2026-05-31 03:25 | auth UI | Meerkat peek scales ×1.5 on all three emerge cycles (1.8 / 2.25 / 3.0). npm run verify clean; pushed dev. |
 | 2026-05-31 03:40 | auth UI | Session auth chrome auto-dismisses after 10s (sessionStorage, no reappear). Meerkat cycle scales: base 1.8 → +20% (2.16) → +50% (2.7). npm run verify clean; pushed dev. |
 | 2026-05-31 03:50 | auth UI | Meerkat cycle 2/3 scales locked to +20% / +50% vs cycle 1 (2.16 / 2.7). npm run verify clean; pushed dev. |
+| 2026-05-31 04:00 | auth UI | Meerkat cycle 2/3 scales → +30% / +70% vs cycle 1 (2.34 / 3.06). npm run verify clean; pushed dev. |
