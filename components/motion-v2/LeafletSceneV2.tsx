@@ -243,17 +243,6 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       refreshSuburbLayers();
     }
 
-    function areaStyle(
-      feature: GeoJSON.Feature,
-      level: "state" | "area" | "suburb",
-      activeArea: string | null,
-    ): L.PathOptions {
-      const name = (feature.properties as { name: string }).name;
-      if (level === "state") return { ...AREA_STATE_SOLID, dashArray: DASH_CLEAR };
-      if (name === activeArea) return { ...ACTIVE_AREA_OUTLINE };
-      return { ...HIDDEN_AREA };
-    }
-
     function resetAreaPathToStateSolid(pathLayer: L.Path) {
       pathLayer.setStyle({ ...AREA_STATE_SOLID, dashArray: DASH_CLEAR });
       pathLayer.options.dashArray = DASH_CLEAR;
@@ -349,7 +338,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
       });
     }
 
-    function createAreaLayer(map: L.Map): L.GeoJSON {
+    function createAreaLayer(): L.GeoJSON {
       const svgRenderer = svgRendererRef.current;
       const features = nswAreasFeaturesRef.current;
       const counts = areaCountsRef.current;
@@ -373,7 +362,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
         map.removeLayer(areaLayerRef.current);
         areaLayerRef.current = null;
       }
-      const layer = createAreaLayer(map);
+      const layer = createAreaLayer();
       layer.addTo(map);
       areaLayerRef.current = layer;
       refreshAreaLayers();
@@ -719,7 +708,7 @@ export const LeafletSceneV2 = forwardRef<LeafletSceneHandle, Props>(
                 ),
             ) as GeoJSON.Feature[];
 
-            areaLayerRef.current = createAreaLayer(map);
+            areaLayerRef.current = createAreaLayer();
             areaLayerRef.current.addTo(map);
           },
         )

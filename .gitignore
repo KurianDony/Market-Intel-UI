@@ -41,3 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local QA screenshots (committed captures are tracked explicitly)
+/assets/screenshots/_*.png
+/assets/screenshots/gathering-data-*.png
+/assets/screenshots/leaflet-*.png
+/assets/screenshots/map-*.png
+/assets/screenshots/meerkat-cycle1-full.png

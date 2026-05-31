@@ -16,7 +16,7 @@ import {
   LISTING_MIX_LABELS,
 } from "@/lib/dash/listing-mix";
 import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
-import { ChartViewport, CHART_HEIGHT_COMPACT, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
+import { ChartViewport, CHART_HEIGHT_DEFAULT } from "./ChartViewport";
 
 export function ListingMixStackedBar({
   rows,

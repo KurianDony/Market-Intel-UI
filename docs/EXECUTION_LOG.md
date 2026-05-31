@@ -83,3 +83,4 @@
 | 2026-05-31 04:00 | auth UI | Meerkat cycle 2/3 scales → +30% / +70% vs cycle 1 (2.34 / 3.06). npm run verify clean; pushed dev. |
 | 2026-05-31 04:15 | auth | Tab-scoped sessions via sessionStorage `mm_session_alive` — TabSessionGate signs out on fresh tab; reload keeps session. Login/confirm/password flows set marker. npm run verify clean; pushed dev. |
 | 2026-05-31 04:30 | release | Merged `dev` → `main` (`d5ab334`) — site-wide auth gate + inverted login UI, meerkat peek, 10s auth chrome, tab-close logout live on marketmeerkat.guru. Tagged `v0.2-auth-live`. npm run build + verify clean. |
+| 2026-05-31 06:10 | chore | Full check pass: eslint ignore `.next`, lint nits fixed, local QA screenshots gitignored; `npm run build` + verify + tsc clean; pushed all branches/tags to origin. |
