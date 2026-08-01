@@ -10,7 +10,6 @@ const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 /** Large centered eye — viewport units only (no transform scale; that clipped the Lottie). */
 const EYE_SIZE = "min(92vw, 72dvh)";
-const VIEWPORT_MARGIN_PX = 24;
 
 /** Label vs 56/6.4/72 base (+20% size vs prior). */
 const LABEL_SCALE = 0.75 * 0.7 * 0.5 * 1.2 * 1.2;
