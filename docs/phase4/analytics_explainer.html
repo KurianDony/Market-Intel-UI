@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suburb Analytics — Methodology Explainer (v2)</title>
+<style>
+  :root{--bg:#f6f8fa;--card:#fff;--bd:#d0d7de;--ink:#1f2328;--mut:#656d76;--accent:#0969da;
+        --green:#1a7f37;--amber:#9a6700;--red:#cf222e;--code:#0d1117;--codeink:#e6edf3}
+  *{box-sizing:border-box}
+  body{font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+  header{background:#fff;border-bottom:1px solid var(--bd);padding:22px 28px}
+  header h1{margin:0;font-size:20px} header p{margin:6px 0 0;color:var(--mut);font-size:13px}
+  main{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+  h2.section{font-size:17px;margin:34px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+  h2.section .n{color:var(--accent);margin-right:8px}
+  .muted{color:var(--mut);font-size:13px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;background:#fff;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #eaeef2} th{background:#f6f8fa;font-weight:600}
+  tr:last-child td{border-bottom:none} td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  details{background:var(--card);border:1px solid var(--bd);border-radius:8px;margin:8px 0;overflow:hidden}
+  details[open]{box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  summary{cursor:pointer;padding:12px 14px;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸";color:var(--accent);font-size:12px;transition:transform .15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  summary .tag{font-weight:600;font-size:11px;color:#fff;background:var(--accent);border-radius:5px;padding:1px 7px}
+  summary .tag.alt{background:#8250df}
+  summary .sub{font-weight:400;color:var(--mut);font-size:13px}
+  .body{padding:0 16px 16px;border-top:1px solid #eaeef2}
+  .body h4{margin:14px 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  .formula{background:#fff4e6;border:1px solid #f0d9b5;border-radius:6px;padding:8px 12px;font-family:ui-monospace,Menlo,monospace;font-size:13px;white-space:pre-wrap}
+  pre{background:var(--code);color:var(--codeink);border-radius:8px;padding:12px 14px;overflow:auto;font-size:12.5px;line-height:1.5}
+  code{font-family:ui-monospace,Menlo,monospace}
+  .pill{display:inline-block;font-size:11px;border-radius:5px;padding:1px 7px;color:#fff}
+  .pill.g{background:var(--green)} .pill.a{background:var(--amber)} .pill.r{background:var(--red)}
+  .note{background:#ddf4ff;border:1px solid #b6e3ff;border-radius:6px;padding:10px 12px;font-size:13px;margin:10px 0}
+  .warn{background:#fff8c5;border:1px solid #eed888}
+  .grp{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 4px;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>Suburb Analytics — Methodology Explainer <span style="color:#8250df">v2</span></h1>
+  <p>Pilot suburbs: Strathfield, Castle Hill, Enmore, Liverpool · metric_version <code>pilot2-2026.06</code> · Demand = G1 seekers · Supply = G2 listings (G1 never used for supply) · Price = G1 p50 · click any row for formula, code &amp; meaning.</p>
+</header>
+<main>
+
+<!-- ===================== SECTION 1: DATA CLEANING ===================== -->
+<h2 class="section"><span class="n">1.</span>Data cleaning</h2>
+<p>Every input passes a cleaning stage before any metric runs. The governing rule is <strong>report, don't silently drop</strong>: a value that fails a rule is excluded from that metric and counted — never quietly altered or imputed.</p>
+
+<h4 class="grp">The cleaning principles</h4>
+<table>
+  <tr><th>Principle</th><th>What it does</th><th>Why</th></tr>
+  <tr><td><strong>Range-clip rent</strong></td><td>Weekly rent must be $50–$2000, else excluded from rent stats.</td><td>Kills scrape glitches without touching real values.</td></tr>
+  <tr><td><strong>Cap outliers</strong></td><td>Ceiling absurd derived values (e.g. days-on-market ≤120).</td><td>One freak value can't drag a median/average.</td></tr>
+  <tr><td><strong>Safe divide</strong></td><td>Any ratio with a zero/missing denominator returns "no value".</td><td>No fake infinities from thin data.</td></tr>
+  <tr><td><strong>G2-anchored, deduped</strong></td><td>One row per listing; supply &amp; listings anchored to the latest G2 week.</td><td>No double-counting; counts and charts describe the same moment.</td></tr>
+  <tr><td><strong>Size cap (≤5)</strong></td><td>Small-house analysis ignores houses with &gt;5 rooms or &gt;5 tenants.</td><td>Flatmates caps that field at 6, so 6+ is a lumped, unreliable bucket.</td></tr>
+  <tr><td><strong>Sanity gates</strong></td><td>Percentiles must be ordered; histogram must reconcile to the count.</td><td>Catches corrupted distributions before a chart.</td></tr>
+</table>
+
+<div class="note"><strong>Low supply is NOT cleaned out</strong> — a week with few rooms is a real soft-market signal, kept as-is. And <strong>G1 supply (rooms_offered) is not used at all</strong> for supply maths; only G2 listing counts are.</div>
+
+<h4 class="grp">What was actually removed (live, this run)</h4>
+<p class="muted">Rent data was clean — nothing dropped for range/null/duplicates. The meaningful exclusion is the <strong>≤5 size cap</strong>: 6+ bedroom houses are set aside from the small-house view (they're the capped/lumped bucket).</p>
+<table>
+  <tr><th>Suburb</th><th class="num">Live listings</th><th class="num">Rent dropped</th><th class="num">Bedrooms &gt;5 (set aside)</th><th class="num">Occupants &gt;5</th><th class="num">Duplicate IDs</th></tr>
+  <tr><td>Strathfield</td><td class="num">108</td><td class="num">0</td><td class="num">58</td><td class="num">1</td><td class="num">0</td></tr>
+  <tr><td>Castle Hill</td><td class="num">33</td><td class="num">0</td><td class="num">7</td><td class="num">0</td><td class="num">0</td></tr>
+  <tr><td>Enmore</td><td class="num">61</td><td class="num">0</td><td class="num">18</td><td class="num">5</td><td class="num">0</td></tr>
+  <tr><td>Liverpool</td><td class="num">26</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+</table>
+<p class="muted">Note: over half of Strathfield's listings are 6+ bedroom share houses — a real feature of that suburb, deliberately excluded from the "small-house" question.</p>
+
+<!-- ===================== SECTION 2: METRICS ===================== -->
+<h2 class="section"><span class="n">2.</span>Metrics calculated</h2>
+
+<div class="note"><strong>The 3-lens framework.</strong> Demand, Supply and Price are each reported through three comparison lenses, so a number always has context:
+<br>• <strong>Lens 1 — this suburb over time:</strong> now, vs last week, and a 4-week trend.
+<br>• <strong>Lens 2 — vs its area:</strong> the average across other suburbs in the same area, plus this suburb's rank.
+<br>• <strong>Lens 3 — vs Sydney:</strong> the average across all suburbs.</div>
+
+<div class="grp">Confidence gate (runs first)</div>
+<details><summary><span class="tag">C1·C2</span> Confidence badge <span class="sub">GREEN / AMBER / RED — is there enough data to trust?</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>The colored chip is a go/no-go on the whole card. It answers "does this suburb have enough real data to believe the numbers?" — based on G2 listing volume and recency. <span class="pill g">GREEN</span> = enough listings and recent weeks present. <span class="pill a">AMBER</span> = thin (&lt;8 listings) or short history (fewer than 4 of the last weeks). <span class="pill r">RED</span> = under 3 listings, too little to mean anything. Low G1 supply is <em>not</em> penalised (that's a soft market, not bad data).</p>
+<h4>Formula</h4><div class="formula">C1 (sample): RED if listings&lt;3 · AMBER if listings&lt;8 · else GREEN
+C2 (recency): weeks_present = distinct G2 weeks in last 28 days
+              if weeks_present &lt; 4 → knock GREEN down to AMBER</div>
+<h4>Worked example</h4><p>Strathfield = GREEN (109 listings, full cycle). Enmore = AMBER (61 listings but only 3 of the last 4 weeks loaded).</p>
+<h4>Code</h4>
+<pre><code>if total_listings is None or total_listings &lt; 3:   level = "RED"
+elif total_listings &lt; 8:                           level = "AMBER"
+else:                                              level = "GREEN"
+if weeks_present_4 &lt; 4 and level == "GREEN":       level = "AMBER"</code></pre>
+</div></details>
+
+<div class="grp">The three headline metrics × 3 lenses</div>
+
+<details><summary><span class="tag">DEM</span> Demand — seekers <span class="sub">how many people are looking, 3 lenses</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>The number of people searching in the suburb (G1 "people looking"), seen three ways: trend over the last 4 weeks, versus other suburbs in the area (with rank), and versus the Sydney average. Higher / rising = more competition for rooms.</p>
+<h4>Formula (same for all three headline metrics)</h4><div class="formula">now        = latest weekly value
+wow_delta  = now − last week
+area_avg   = mean of the latest value across suburbs in this area
+vs_area%   = 100 × (now − area_avg) / area_avg
+sydney_avg = mean of the latest value across ALL suburbs
+vs_sydney% = 100 × (now − sydney_avg) / sydney_avg</div>
+<h4>Code</h4>
+<pre><code>now  = series[-1][1]
+last = series[-2][1]
+wow  = now - last
+area_avg   = mean(latest value for each suburb where area matches)
+sydney_avg = mean(latest value for every suburb)
+vs_area_pct   = 100 * (now - area_avg)   / area_avg
+vs_sydney_pct = 100 * (now - sydney_avg) / sydney_avg</code></pre>
+</div></details>
+
+<details><summary><span class="tag">SUP</span> Supply — G2 listings <span class="sub">how much competing stock, 3 lenses (no G1)</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>The count of live listings in the suburb, from G2 only. Same three lenses. This is the real measure of how much stock a room competes against. <strong>G1's rooms_offered is never used here.</strong></p>
+<h4>Worked example</h4><p>Strathfield now 109 listings, area average ~25 (rank 1 of 20), Sydney average ~24 → it's a far larger market than typical (+338% vs area). Enmore jumped +16 week-over-week (34→61).</p>
+<h4>Formula</h4><div class="formula">supply = G2 total_listings at the latest G2 week
+(then the same now / area / Sydney lens maths as Demand)</div>
+</div></details>
+
+<details><summary><span class="tag">PRC</span> Price — p50 <span class="sub">typical rent, 3 lenses</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>The median advertised rent (p50, read off the G1 price curve), across the same three lenses. Lets you see if a suburb is pricier or cheaper than its area and than Sydney, and which way it's trending.</p>
+<h4>Worked example</h4><p>Strathfield p50 $300, down $20 w/w, ~10% below both its area ($333) and Sydney ($330). Enmore $360, ~9% above Sydney.</p>
+<h4>How p50 is read</h4>
+<pre><code>def gen_percentile_from_bars(bars, p):
+    total = sum(b["relative_height"] for b in bars)
+    cum = 0.0
+    for b in bars:
+        cum += b["relative_height"]
+        if cum &gt;= total * p:
+            return int(b["price"])</code></pre>
+</div></details>
+
+<div class="grp">Demand ratios (each shown as a band)</div>
+
+<details><summary><span class="tag">R1</span> G1 demand ratio <span class="sub">seekers per room, shown as a ±band</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>Flatmates' own demand ratio (seekers per room). Because the source value is coarse, we show it as a small asymmetric band rather than a false-precise point: a ratio of 3 displays as <strong>2.5–3.4</strong>.</p>
+<h4>Formula</h4><div class="formula">band(R) = [ R − 0.5 ,  R + 0.4 ]
+e.g. 3 → 2.5–3.4 ,  2 → 1.5–2.4</div>
+<h4>Code</h4>
+<pre><code>BAND_LO, BAND_HI = -0.5, 0.4
+def ratio_band(r):
+    return {"value": r, "low": r + BAND_LO, "high": r + BAND_HI}</code></pre>
+</div></details>
+
+<details><summary><span class="tag">R2</span> Listings per seeker <span class="sub">competing supply each seeker faces</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>How much live stock there is per person searching = G2 listings ÷ seekers. Higher means a looser market (lots of choice per seeker). We <em>flipped</em> this from "seekers per listing" because that came out near-zero and the band went negative; listings-per-seeker gives a readable magnitude.</p>
+<h4>Worked example</h4><p>Strathfield 109 listings ÷ 3 seekers = <strong>36.3</strong> (band 35.8–36.7) → very loose. Liverpool 8.7 → tighter.</p>
+<h4>Formula</h4><div class="formula">listings_per_seeker = G2 listings / G1 seekers
+band = [ value − 0.5 , value + 0.4 ]</div>
+<h4>Code</h4>
+<pre><code>lps = safe_div(listings, seekers)   # G2 / G1-seekers
+ratio_band(lps)</code></pre>
+</div></details>
+
+<div class="grp">Pricing analysis</div>
+
+<details><summary><span class="tag alt">SH</span> Small-house: do people pay more for a smaller house? <span class="sub">median rent by size 1–5</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>The business question directly: median weekly rent of a room, grouped by how many bedrooms (and separately, occupants) the house has, for sizes 1–5. Houses with 6+ rooms/tenants are excluded (flatmates caps the field at 6, so it's unreliable). If smaller sizes show higher rent, people are paying a premium for a room in a smaller house.</p>
+<h4>The finding (all four suburbs)</h4><p><strong>Smaller houses ask more</strong> — consistently. Strathfield 1br&nbsp;$560 vs 5br&nbsp;$300; Enmore peaks at 2br&nbsp;$525; Castle Hill and Liverpool the same direction. Sample sizes (n) are shown on every bar, since some buckets are thin.</p>
+<h4>Formula</h4><div class="formula">for size s in 1..5:
+    median_rent[s] = median( rent_pw of listings with bedrooms == s )
+verdict = compare smallest (1–2 br) vs largest (4–5 br) medians</div>
+<h4>Code</h4>
+<pre><code>for L in live_listings:
+    rent = clip_rent(L["rent_pw"])
+    b = L.get("bedrooms")
+    if isinstance(b, int) and 1 &lt;= b &lt;= 5:
+        by_bed[b].append(rent)
+median_rent = {s: median(v) for s, v in by_bed.items()}</code></pre>
+</div></details>
+
+<div class="grp">Underlying base + self-checks</div>
+<details><summary><span class="tag">B2·B4·B7</span> Percentile band · dispersion · skew <span class="sub">the shape behind the price</span></summary>
+<div class="body">
+<h4>What they show</h4><p>The p50 headline sits on the full price distribution: the <strong>band</strong> p10–p90 (cheap to premium), <strong>dispersion</strong> = p90−p10 (how tight the market is), and <strong>skew</strong> = average − p50 (whether a tail of pricey listings pulls the mean up).</p>
+<h4>Formula</h4><div class="formula">band        = { p10, p20, p50, p80, p90 }
+dispersion  = p90 − p10   (and p80 − p20)
+skew        = avg_rent − p50</div>
+</div></details>
+
+<details><summary><span class="tag">QA</span> GIGO self-checks <span class="sub">does the maths add up?</span></summary>
+<div class="body">
+<h4>What it shows</h4><p>Automatic integrity checks each run; a failure flags the card rather than trusting it.</p>
+<div class="formula">percentile_monotonic : p10 ≤ p20 ≤ p50 ≤ p80 ≤ p90
+histogram reconciles : placed + dropped = live listings
+histogram vs counts  : |placed − total_listings| ≤ 5</div>
+</div></details>
+
+<!-- ===================== SECTION 3: GRAPHS ===================== -->
+<h2 class="section"><span class="n">3.</span>Graphs &amp; visuals</h2>
+
+<details><summary><span class="tag">chart</span> 4-week trend sparkline <span class="sub">on Demand, Supply, Price</span></summary>
+<div class="body">
+<h4>What it is</h4><p>The little bar strip under each headline metric — the last four weekly values, so you see direction at a glance (rising supply, falling rent, etc.).</p>
+<h4>How it's calculated</h4><p>Each bar = that week's value, scaled to the tallest bar in the window. Built from the same weekly series the lens maths uses; no extra computation.</p>
+</div></details>
+
+<details><summary><span class="tag alt">chart</span> Small-house bars <span class="sub">median rent by house size 1–5</span></summary>
+<div class="body">
+<h4>What it is</h4><p>Five bars (1br…5br), each the median room rent for that house size, with the dollar value and sample size (n) labelled. A downward slope left-to-right = smaller houses cost more.</p>
+<h4>How it's calculated</h4><p>Bar height ∝ median rent for that bedroom count (see metric SH above). Houses with 6+ bedrooms are excluded entirely.</p>
+</div></details>
+
+<details><summary><span class="tag">tiles</span> Lens comparison row <span class="sub">now · area · Sydney</span></summary>
+<div class="body">
+<h4>What it is</h4><p>For each headline metric: the current value with a ▲/▼ week change, then two comparison chips — "area (avg, rank, %)" and "syd (avg, %)". The % is this suburb relative to that baseline.</p>
+<h4>How it's calculated</h4><p>Directly from the 3-lens block; the % figures are <code>100 × (now − baseline) / baseline</code>.</p>
+</div></details>
+
+<details><summary><span class="tag">tiles</span> Ratio band tiles <span class="sub">the two demand ratios</span></summary>
+<div class="body">
+<h4>What it is</h4><p>Two amber tiles showing each ratio as a range (G1 demand ratio band, and listings-per-seeker band) rather than a single false-precise number.</p>
+<h4>How it's calculated</h4><p>See metrics R1 and R2 — value ± the fixed band.</p>
+</div></details>
+
+<p class="muted" style="margin-top:30px">Reflects pilot2 (3-lens demand/supply/price + ratio bands + small-house). The movement / liquidity / closing graphs come with the next slice and will be added here when built.</p>
+
+</main>
+</body>
+</html>
