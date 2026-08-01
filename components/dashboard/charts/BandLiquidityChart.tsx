@@ -11,17 +11,24 @@ import {
   YAxis,
 } from "recharts";
 import { INK_40, INK_100 } from "@/lib/palette/v2";
-import type { DashSuburbBandLiquidity } from "@/lib/types/dash-phase3";
 import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
 import { ChartViewport, CHART_HEIGHT_TALL } from "./ChartViewport";
 import { EmptyChart } from "./WeeklyLineChart";
+
+export type BandLiquidityRow = {
+  band_ord: number;
+  band_label: string;
+  standing: number;
+  moved: number;
+  pct_moved: number | null;
+};
 
 /** Contract D20 — which price bands clear vs which just sit. */
 export function BandLiquidityChart({
   bands,
   height = CHART_HEIGHT_TALL,
 }: {
-  bands: DashSuburbBandLiquidity[];
+  bands: BandLiquidityRow[];
   height?: number;
 }) {
   if (bands.length === 0) {

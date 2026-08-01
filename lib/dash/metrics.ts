@@ -91,6 +91,31 @@ export function bestClearingBand<T extends { band_label: string; standing: numbe
   );
 }
 
+/**
+ * Only occupied bands are persisted. Back-fill the rest from the band
+ * definitions so the 14-rung ladder stays continuous — an absent band is a
+ * genuine zero (nothing listed in that range), unlike a missing week.
+ */
+export function fillBandLadder<
+  T extends { band_ord: number; band_label: string; standing: number; moved: number; pct_moved: number | null },
+>(
+  present: T[],
+  definitions: { band_ord: number; band_label: string }[],
+): Pick<T, "band_ord" | "band_label" | "standing" | "moved" | "pct_moved">[] {
+  if (present.length === 0) return [];
+  const byOrd = new Map(present.map((b) => [b.band_ord, b]));
+  return definitions.map(
+    (def) =>
+      byOrd.get(def.band_ord) ?? {
+        band_ord: def.band_ord,
+        band_label: def.band_label,
+        standing: 0,
+        moved: 0,
+        pct_moved: null,
+      },
+  );
+}
+
 export type MixEntry = { label: string; count: number; share: number };
 
 const MIX_LABELS: Record<string, string> = {
