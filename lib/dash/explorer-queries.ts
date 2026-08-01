@@ -202,11 +202,25 @@ export async function fetchSuburbExplorerData(
   if (mixRes.error) throw mixRes.error;
 
   const weekly = (weeklyRes.data ?? []) as DashSuburbWeekly[];
-  if (weekly.length === 0) {
+  const priceStats = (priceRes.data ?? []) as DashSuburbPriceStats[];
+  const movement = (moveRes.data ?? []) as DashSuburbMovement[];
+  const coverage = (covRes.data ?? []) as DashSuburbCoverage[];
+
+  // The G1 spine and the G2 listing tables are populated independently: a
+  // suburb outside the capable set can still carry listing weeks. Only a
+  // suburb absent from all four is genuinely without market data.
+  const dataWeeks = [
+    ...new Set([
+      ...weekly.map((r) => r.iso_week),
+      ...priceStats.map((r) => r.iso_week),
+      ...movement.map((r) => r.iso_week),
+      ...coverage.map((r) => r.iso_week),
+    ]),
+  ].sort();
+  if (dataWeeks.length === 0) {
     return { kind: "no-market-data", identity };
   }
 
-  const dataWeeks = weekly.map((r) => r.iso_week);
   const axis = buildWeekAxis(dataWeeks);
   const areaWeekly = (areaRes.data ?? []) as DashAreaWeekly[];
 
@@ -219,9 +233,9 @@ export async function fetchSuburbExplorerData(
     dataWeeks,
     selectedWeek: pickWeek(dataWeeks, requestedWeek),
     weekly,
-    priceStats: (priceRes.data ?? []) as DashSuburbPriceStats[],
-    movement: (moveRes.data ?? []) as DashSuburbMovement[],
-    coverage: (covRes.data ?? []) as DashSuburbCoverage[],
+    priceStats,
+    movement,
+    coverage,
     bandLiquidity: (bandRes.data ?? []) as DashSuburbBandLiquidity[],
     histogram: (histRes.data ?? []) as DashSuburbListingHistogram[],
     bandDefinitions: bands,
