@@ -25,6 +25,7 @@ import {
 } from "@/lib/dash/iso-week";
 import {
   bestClearingBand,
+  fillBandLadder,
   firstLastChange,
   formatFirstLastCount,
   formatFirstLastCurrency,
@@ -77,6 +78,7 @@ function ExplorerView({
     movement,
     coverage,
     bandLiquidity,
+    bandDefinitions,
     histogram,
     areaWeekly,
     cityWeekly,
@@ -96,7 +98,10 @@ function ExplorerView({
   const g2Label = g2Week
     ? `G2 listing data as at w/c ${formatWeekLong(g2Week)}${g2Behind && g2Behind > 0 ? ` · ${g2Behind} wk behind the demand spine` : ""}`
     : "No listing-level (G2) data recorded for this suburb";
-  const bands = g2Week ? bandLiquidity.filter((b) => b.iso_week === g2Week) : [];
+  const bands = fillBandLadder(
+    g2Week ? bandLiquidity.filter((b) => b.iso_week === g2Week) : [],
+    bandDefinitions,
+  );
 
   const areaRow = areaWeekly.find((r) => r.iso_week === selectedWeek) ?? null;
   const cityRow = cityWeekly.find((r) => r.iso_week === selectedWeek) ?? null;
@@ -200,12 +205,32 @@ function ExplorerView({
         ]}
       />
 
-      <p
-        className="mb-8 border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
-        style={{ borderColor: INK_20, color: INK_60 }}
-      >
-        {g2Label}
-      </p>
+      <div className="mb-8 space-y-2">
+        <p
+          className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
+          style={{ borderColor: INK_20, color: INK_60 }}
+        >
+          {g2Label}
+        </p>
+        {!identity.g1_capable && (
+          <p
+            className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
+            style={{ borderColor: INK_40, color: INK_60 }}
+          >
+            Outside the G1-capable set — no seeker, demand-ratio, average-rent or rank series
+            is collected here. Every G1 field below reads “—”; the listing-level figures are real.
+          </p>
+        )}
+        {identity.g1_capable && spine == null && (
+          <p
+            className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
+            style={{ borderColor: INK_40, color: INK_60 }}
+          >
+            No G1 spine row for w/c {formatWeekLong(selectedWeek)} — demand fields read “—” for
+            this week.
+          </p>
+        )}
+      </div>
 
       {/* ── A · PRICE ─────────────────────────────────────────────── */}
       <SectionHeading letter="A" title="Price — what rooms cost" subtitle={g2Label} />
@@ -217,7 +242,7 @@ function ExplorerView({
           source="dash_suburb_price_stats.p50"
           explain="The middle live-listing rent for all rooms — half ask more, half less."
           series={p50Series}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="A2"
@@ -256,7 +281,7 @@ function ExplorerView({
           source="dash_suburb_weekly.alltime_avg_rent_delta · p50 series first vs latest"
           explain="Net move in the typical rent since the earliest recorded week."
           series={p50Series}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
           table={{
             cols: ["all-time avg-rent delta"],
             rows: [[
@@ -579,7 +604,7 @@ function ExplorerView({
           source="dash_suburb_movement.closing_rent (0.95 × gone median)"
           explain="Estimated what these rooms actually let for — 5% under the last ask."
           series={moveSeries((r) => r.closing_rent)}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="D24"
@@ -588,7 +613,7 @@ function ExplorerView({
           source="dash_suburb_movement.dom_median_days (capped at 120)"
           explain="Median days a live room has been on the market."
           series={moveSeries((r) => r.dom_median_days)}
-          seriesFormat={(v) => `${v}d`}
+          seriesFormat="days"
         />
       </MetricGrid>
 
@@ -656,7 +681,7 @@ function ExplorerView({
           source="dash_suburb_weekly.mom_avg_rent"
           explain="Average rent now against 28 days ago."
           series={avgRentSeries}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="F26"
@@ -667,7 +692,7 @@ function ExplorerView({
           source="dash_suburb_weekly.qoq_avg_rent"
           explain="Average rent now against 91 days ago."
           series={avgRentSeries}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="F26"
@@ -775,8 +800,9 @@ function NoMarketDataView({
           No market data for this suburb
         </h2>
         <p className="mb-4 text-[13px] leading-relaxed" style={{ color: INK_60 }}>
-          {identity.suburb} is on the roster but is not part of the capable set — the upstream
-          source carries no weekly rent, demand or listing series for it, so there is nothing to
+          {identity.suburb} is on the roster
+          {identity.g1_capable ? "" : " but sits outside the G1-capable set"} — no weekly rent,
+          demand, listing or coverage row has ever been recorded for it, so there is nothing to
           chart. This is an absence of data, not a zero market.
         </p>
         <MiniTable

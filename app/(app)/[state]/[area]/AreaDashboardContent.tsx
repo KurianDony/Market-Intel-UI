@@ -257,7 +257,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_weekly.median_avg_rent"
           explain="Median of the suburb-level average rents inside this area."
           series={medianRentSeries}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="A2"
@@ -282,7 +282,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_price_stats.dispersion_9010, .iqr_7525"
           explain="How wide pricing runs across the area's listings."
           series={pSeries((r) => r.dispersion_9010)}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
           table={{
             cols: ["p90−p10", "IQR p75−p25", "mean"],
             rows: [[
@@ -299,7 +299,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_weekly.median_avg_rent — first vs latest by iso_week"
           explain="Net move in the area median since the earliest recorded week."
           series={medianRentSeries}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="A—"
@@ -322,7 +322,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_weekly.median_p50"
           explain="Median of the suburb p50s read off the G1 price curve."
           series={series((r) => r.median_p50)}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
       </MetricGrid>
 
@@ -468,7 +468,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_movement.dom_median_days"
           explain="Median days a live room in this area has been on the market."
           series={mSeries((r) => r.dom_median_days)}
-          seriesFormat={(v) => `${v}d`}
+          seriesFormat="days"
         />
         <MetricCard
           code="D—"
@@ -512,7 +512,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
             week: w,
             value: row?.coverage_pct == null ? null : Number(row.coverage_pct),
           }))}
-          seriesFormat={(v) => `${v}%`}
+          seriesFormat="percent"
         />
       </MetricGrid>
 
@@ -544,7 +544,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_weekly.mom_median_avg_rent"
           explain="Area median rent against 28 days ago."
           series={medianRentSeries}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="F26"
@@ -557,7 +557,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           source="dash_area_weekly.qoq_median_avg_rent"
           explain="Area median rent against 91 days ago."
           series={medianRentSeries}
-          seriesFormat={(v) => `$${v}`}
+          seriesFormat="currency"
         />
         <MetricCard
           code="F26"

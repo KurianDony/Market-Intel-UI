@@ -10,6 +10,20 @@ export type MetricTable = {
   rows: (string | number | null)[][];
 };
 
+/**
+ * Serializable format token — these cards are rendered from server components,
+ * so a formatter function cannot be passed across the boundary.
+ */
+export type SeriesFormat = "currency" | "count" | "percent" | "days" | "ratio";
+
+const SERIES_FORMATTERS: Record<SeriesFormat, (v: number) => string> = {
+  currency: (v) => `$${Math.round(v)}`,
+  count: (v) => String(v),
+  percent: (v) => `${Math.round(v)}%`,
+  days: (v) => `${Math.round(v)}d`,
+  ratio: (v) => v.toFixed(2),
+};
+
 export type MetricCardProps = {
   /** Contract element id, e.g. "A1" — keeps the UI traceable to the mapping. */
   code: string;
@@ -20,7 +34,7 @@ export type MetricCardProps = {
   /** "What it shows" — plain-English meaning. */
   explain: string;
   series?: SparkPoint[];
-  seriesFormat?: (value: number) => string;
+  seriesFormat?: SeriesFormat;
   table?: MetricTable;
   /** Rendered above the fold when a metric is only partially available. */
   caveat?: string;
@@ -51,6 +65,7 @@ export function MetricCard({
   const [open, setOpen] = useState(false);
   const detailId = useId();
   const recent = series ? series.slice(-12) : [];
+  const formatValue = seriesFormat ? SERIES_FORMATTERS[seriesFormat] : null;
 
   return (
     <div
@@ -129,7 +144,7 @@ export function MetricCard({
                 cols={recent.map((p) => formatWeekTick(p.week))}
                 rows={[
                   recent.map((p) =>
-                    p.value == null ? null : seriesFormat ? seriesFormat(p.value) : p.value,
+                    p.value == null ? null : formatValue ? formatValue(p.value) : p.value,
                   ),
                 ]}
                 titles={recent.map((p) => formatWeekLong(p.week))}
