@@ -14,19 +14,21 @@ export function DashboardShell({
       className="min-h-screen pb-20"
       style={{ background: INK_0, color: INK_100 }}
     >
+      {/* Phone: stack, and keep each label whole — left to wrap, the meta labels
+          broke mid-phrase and ran into each other. Row layout resumes at sm. */}
       <header
-        className="flex items-baseline justify-between border-b px-12 py-6"
+        className="flex flex-col gap-y-1.5 border-b px-12 py-6 sm:flex-row sm:items-baseline sm:justify-between"
         style={{ borderColor: INK_100 }}
       >
-        <div className="flex items-baseline gap-4">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <Link
             href="/"
-            className="font-mono text-lg font-bold tracking-[0.1em] hover:opacity-80"
+            className="whitespace-nowrap font-mono text-lg font-bold tracking-[0.1em] hover:opacity-80"
           >
             MARKET MEERKAT
           </Link>
           <span
-            className="text-[11px] uppercase tracking-[0.15em]"
+            className="whitespace-nowrap text-[11px] uppercase tracking-[0.15em]"
             style={{ color: INK_60 }}
           >
             Dashboard · G3
@@ -34,7 +36,7 @@ export function DashboardShell({
         </div>
         {snapshotDate && (
           <span
-            className="text-[11px] uppercase tracking-[0.15em]"
+            className="whitespace-nowrap text-[11px] uppercase tracking-[0.15em]"
             style={{ color: INK_60 }}
           >
             Snapshot {snapshotDate}
