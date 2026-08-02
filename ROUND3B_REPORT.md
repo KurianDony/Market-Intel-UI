@@ -58,6 +58,9 @@ Also: `npm run lint` (0 errors), `npx tsc --noEmit` clean, `npm run verify` (pro
 
 ## Deploy
 
-`dev` → `main` after green QA. Production READY on **marketmeerkat.guru** (see deploy IDs below after push).
+`dev` → `main` after green QA (`0dca11c` feature + `5bf7141` log). Production READY:
 
-Prod harness re-run: Round 3B visual pass at 1440/390 (Strathfield, gap-adjacent week, Mayfield West).
+- Commit: `5bf7141`
+- Vercel: https://vercel.com/kuriandonyku-2996s-projects/market-intel-ui/EZFoiMjFTgmRerENfUEeCidoV6Ea
+- Alias: **marketmeerkat.guru**
+- Prod harness re-run: Round 3B visual pass clean at 1440/390 (Strathfield, gap-adjacent week, Mayfield West).
