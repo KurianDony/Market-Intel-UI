@@ -26,13 +26,16 @@ const SERIES_FORMATTERS: Record<SeriesFormat, (v: number) => string> = {
 };
 
 export type MetricCardProps = {
-  /** Contract element id, e.g. "A1" — keeps the UI traceable to the mapping. */
-  code: string;
+  /**
+   * Internal contract element id (e.g. "A1"). Kept for director feedback maps
+   * but not rendered in the UI (Round 4B).
+   */
+  code?: string;
   label: string;
   value: string;
-  /** "Where it comes from" — the source table.column. */
+  /** "Where it comes from" - the source table.column. */
   source: string;
-  /** "What it shows" — plain-English meaning. */
+  /** "What it shows" - plain-English meaning. */
   explain: string;
   series?: SparkPoint[];
   seriesFormat?: SeriesFormat;
@@ -62,7 +65,7 @@ const SPAN_CLASS: Record<1 | 2 | 3, string> = {
 };
 
 export function MetricCard({
-  code,
+  code: _code,
   label,
   value,
   source,
@@ -78,15 +81,21 @@ export function MetricCard({
   asOfLabel,
   span = 1,
 }: MetricCardProps) {
+  void _code;
   const [open, setOpen] = useState(false);
   const detailId = useId();
   const recent = series ? series.slice(-12) : [];
   const formatValue = seriesFormat ? SERIES_FORMATTERS[seriesFormat] : null;
+  const metricKey = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
   return (
     <div
       className={`flex flex-col p-4 ${SPAN_CLASS[span]}`}
       style={{ border: `1px solid ${INK_20}`, background: INK_5 }}
+      data-metric={metricKey}
     >
       <button
         type="button"
@@ -100,16 +109,18 @@ export function MetricCard({
             className="text-[10px] font-medium uppercase tracking-[0.15em]"
             style={{ color: INK_60 }}
           >
-            <span style={{ color: INK_40 }}>{code}</span> {label}
+            {label}
           </span>
           <span
             className="shrink-0 text-[13px] font-bold leading-none transition-colors"
             style={{ color: open ? INK_100 : INK_40 }}
           >
-            {open ? "−" : "+"}
+            {open ? "-" : "+"}
           </span>
         </div>
-        <div className="mt-2 text-[19px] font-semibold leading-tight tabular-nums">{value}</div>
+        <div className="mt-2 text-[19px] font-semibold leading-tight tabular-nums" data-metric-value="">
+          {value}
+        </div>
       </button>
 
       {deltas && <div className="mt-2 flex flex-wrap gap-2">{deltas}</div>}
@@ -143,13 +154,13 @@ export function MetricCard({
         >
           <p>
             <span className="uppercase tracking-[0.1em]" style={{ color: INK_60 }}>
-              Where it comes from —{" "}
+              Where it comes from:{" "}
             </span>
             <span className="font-mono text-[11px]">{source}</span>
           </p>
           <p>
             <span className="uppercase tracking-[0.1em]" style={{ color: INK_60 }}>
-              What it shows —{" "}
+              What it shows:{" "}
             </span>
             {explain}
           </p>
@@ -228,7 +239,7 @@ export function MiniTable({
                   style={{ border: `1px solid ${INK_20}` }}
                 >
                   {cell == null || cell === "" ? (
-                    <span style={{ color: INK_40 }}>—</span>
+                    <span style={{ color: INK_40 }}>-</span>
                   ) : (
                     cell
                   )}

@@ -11,6 +11,7 @@ import type {
   DashSuburbCohortX,
   DashSuburbCoverage,
   DashSuburbMovement,
+  DashSuburbMovementX,
   DashSuburbPriceStats,
   DashSuburbPriceStatsX,
   DashSuburbRankPeer,
@@ -54,13 +55,16 @@ export type SuburbExplorerData = {
   selectedWeek: string;
   weekly: DashSuburbWeekly[];
   priceStats: DashSuburbPriceStats[];
-  /** v3 bed × tier — prefer for combined filters. */
+  /** v4 bed-range × tier — prefer for combined filters. */
   priceStatsX: DashSuburbPriceStatsX[];
   /** listing_category rows only (B8); bed/tier supply lives on supplyX. */
   supplyByType: DashSuburbSupplyByType[];
   supplyX: DashSuburbSupplyX[];
   cohortsX: DashSuburbCohortX[];
+  /** Legacy suburb-wide movement (kept for reconciliation / area rollup callers). */
   movement: DashSuburbMovement[];
+  /** v4 — filterable movement; prefer this for all suburb movement cards. */
+  movementX: DashSuburbMovementX[];
   coverage: DashSuburbCoverage[];
   bandLiquidity: DashSuburbBandLiquidity[];
   histogram: DashSuburbListingHistogram[];
@@ -116,6 +120,39 @@ async function fetchBandDefinitions(
   return bandDefinitionsCache;
 }
 
+/**
+ * PostgREST max-rows is 1000 on this project; `.limit(5000)` is silently capped.
+ * Page with `.range` until exhausted. Also drop legacy bare-`6` endpoints — the
+ * UI scale is 1..5..6plus only (Round 4B).
+ */
+async function fetchAllSuburbXRows<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  table:
+    | "dash_suburb_price_stats_x"
+    | "dash_suburb_supply_x"
+    | "dash_suburb_cohorts_x"
+    | "dash_suburb_movement_x",
+  suburbId: number,
+): Promise<T[]> {
+  const pageSize = 1000;
+  const all: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("suburb_id", suburbId)
+      .neq("bed_min", "6")
+      .neq("bed_max", "6")
+      .order("iso_week", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const chunk = (data ?? []) as T[];
+    all.push(...chunk);
+    if (chunk.length < pageSize) break;
+  }
+  return all;
+}
+
 function pickWeek(dataWeeks: string[], requested?: string): string {
   const latest = dataWeeks[dataWeeks.length - 1];
   if (!requested) return latest;
@@ -161,11 +198,12 @@ export async function fetchSuburbExplorerData(
   const [
     weeklyRes,
     priceRes,
-    priceXRes,
+    priceXRows,
     supplyByTypeRes,
-    supplyXRes,
-    cohortXRes,
+    supplyXRows,
+    cohortXRows,
     moveRes,
+    moveXRows,
     covRes,
     bandRes,
     histRes,
@@ -184,32 +222,29 @@ export async function fetchSuburbExplorerData(
       .select("*")
       .eq("suburb_id", identity.id)
       .order("iso_week", { ascending: true }),
-    supabase
-      .from("dash_suburb_price_stats_x")
-      .select("*")
-      .eq("suburb_id", identity.id)
-      .order("iso_week", { ascending: true }),
+    fetchAllSuburbXRows<DashSuburbPriceStatsX>(
+      supabase,
+      "dash_suburb_price_stats_x",
+      identity.id,
+    ),
     supabase
       .from("dash_suburb_supply_by_type")
       .select("*")
       .eq("suburb_id", identity.id)
       .eq("type_dim", "listing_category")
       .order("iso_week", { ascending: true }),
-    supabase
-      .from("dash_suburb_supply_x")
-      .select("*")
-      .eq("suburb_id", identity.id)
-      .order("iso_week", { ascending: true }),
-    supabase
-      .from("dash_suburb_cohorts_x")
-      .select("*")
-      .eq("suburb_id", identity.id)
-      .order("iso_week", { ascending: true }),
+    fetchAllSuburbXRows<DashSuburbSupplyX>(supabase, "dash_suburb_supply_x", identity.id),
+    fetchAllSuburbXRows<DashSuburbCohortX>(supabase, "dash_suburb_cohorts_x", identity.id),
     supabase
       .from("dash_suburb_movement")
       .select("*")
       .eq("suburb_id", identity.id)
       .order("iso_week", { ascending: true }),
+    fetchAllSuburbXRows<DashSuburbMovementX>(
+      supabase,
+      "dash_suburb_movement_x",
+      identity.id,
+    ),
     supabase
       .from("dash_suburb_coverage")
       .select("*")
@@ -247,10 +282,7 @@ export async function fetchSuburbExplorerData(
   for (const res of [
     weeklyRes,
     priceRes,
-    priceXRes,
     supplyByTypeRes,
-    supplyXRes,
-    cohortXRes,
     moveRes,
     covRes,
     bandRes,
@@ -266,6 +298,10 @@ export async function fetchSuburbExplorerData(
   const priceStats = (priceRes.data ?? []) as DashSuburbPriceStats[];
   const movement = (moveRes.data ?? []) as DashSuburbMovement[];
   const coverage = (covRes.data ?? []) as DashSuburbCoverage[];
+  const priceStatsX = priceXRows;
+  const supplyX = supplyXRows;
+  const cohortsX = cohortXRows;
+  const movementX = moveXRows;
 
   // The G1 spine and the G2 listing tables are populated independently: a
   // suburb outside the capable set can still carry listing weeks. Only a
@@ -306,11 +342,12 @@ export async function fetchSuburbExplorerData(
     selectedWeek,
     weekly,
     priceStats,
-    priceStatsX: (priceXRes.data ?? []) as DashSuburbPriceStatsX[],
+    priceStatsX,
     supplyByType: (supplyByTypeRes.data ?? []) as DashSuburbSupplyByType[],
-    supplyX: (supplyXRes.data ?? []) as DashSuburbSupplyX[],
-    cohortsX: (cohortXRes.data ?? []) as DashSuburbCohortX[],
+    supplyX,
+    cohortsX,
     movement,
+    movementX,
     coverage,
     bandLiquidity: (bandRes.data ?? []) as DashSuburbBandLiquidity[],
     histogram: (histRes.data ?? []) as DashSuburbListingHistogram[],

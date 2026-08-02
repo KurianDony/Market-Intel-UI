@@ -101,3 +101,36 @@
   letter-spacing: 0.04em;
   margin-top: 2px;
 }
+
+/* Dual-thumb bedroom range (TypeFilterBar) */
+.bed-range-thumb {
+  pointer-events: none;
+  height: 24px;
+}
+.bed-range-thumb::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 0;
+  background: #ffffff;
+  border: 1px solid #000000;
+  cursor: pointer;
+}
+.bed-range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 0;
+  background: #ffffff;
+  border: 1px solid #000000;
+  cursor: pointer;
+}
+.bed-range-thumb::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.bed-range-thumb::-moz-range-track {
+  background: transparent;
+}
+

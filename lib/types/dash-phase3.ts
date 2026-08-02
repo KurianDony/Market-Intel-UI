@@ -63,13 +63,14 @@ export type DashSuburbPriceStatsByType = {
   iqr_7525: number | null;
 };
 
-/** v3 — bed × tier cross grain for combined filters. */
+/** v4 — bed-range × tier cross grain for combined filters. */
 export type DashSuburbPriceStatsX = {
   suburb_id: number;
   suburb_slug: string;
   area_slug: string;
   iso_week: string;
-  bed_bucket: string;
+  bed_min: string;
+  bed_max: string;
   tier: string;
   sample_n: number;
   p10: number | null;
@@ -94,13 +95,14 @@ export type DashSuburbSupplyByType = {
   stale_weeks: number | null;
 };
 
-/** v3 — bed × tier live/new/gone. */
+/** v4 — bed-range × tier live/new/gone. */
 export type DashSuburbSupplyX = {
   suburb_id: number;
   suburb_slug: string;
   area_slug: string;
   iso_week: string;
-  bed_bucket: string;
+  bed_min: string;
+  bed_max: string;
   tier: string;
   live_count: number;
   new_count: number;
@@ -124,20 +126,24 @@ export type DashSuburbCohort = {
   median_weeks_on_market: number | null;
 };
 
-/** v3 — same metrics as cohorts, keyed by bed_bucket × tier. */
+/** v4 — same metrics as cohorts, keyed by (bed_min, bed_max) × tier. */
 export type DashSuburbCohortX = {
   suburb_id: number;
   suburb_slug: string;
   area_slug: string;
   iso_week: string;
   cohort: "added" | "removed";
-  bed_bucket: string;
+  bed_min: string;
+  bed_max: string;
   tier: string;
   count: number;
   median_rent: number | null;
   p25: number | null;
   p75: number | null;
   dom_median: number | null;
+  /** v4 — removed cohort DOM band. */
+  dom_p25: number | null;
+  dom_p75: number | null;
   repriced_share: number | null;
   median_weeks_on_market: number | null;
 };
@@ -191,6 +197,28 @@ export type DashSuburbMovement = {
   dom_median_days: number | null;
   weeks_on_market_median: number | null;
   closing_rent: number | null;
+};
+
+/** v4 — composition + reprice + turnover + DOM at bed-range × tier. */
+export type DashSuburbMovementX = {
+  suburb_id: number;
+  suburb_slug: string;
+  area_slug: string;
+  iso_week: string;
+  bed_min: string;
+  bed_max: string;
+  tier: string;
+  stock: number;
+  new_count: number;
+  gone_count: number;
+  repriced_count: number;
+  reprice_up: number;
+  reprice_down: number;
+  carried_count: number | null;
+  turnover: number | null;
+  dom_median: number | null;
+  dom_p25: number | null;
+  dom_p75: number | null;
 };
 
 export type DashSuburbBandLiquidity = {

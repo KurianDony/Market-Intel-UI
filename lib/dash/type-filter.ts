@@ -1,34 +1,39 @@
 /**
- * Bed × tier filter — contract v3 / ROUND3B.
+ * Bed-range × tier filter — contract v4 / ROUND4B.
  *
- * Filters combine freely via the `_x` tables (bed_bucket × tier).
- * `listing_category` (whole property, studio, …) is count-only (B8) and never
- * drives price or cohort charts.
+ * UI scale is six positions: 1 < 2 < 3 < 4 < 5 < 6plus.
+ * The bare `6` level exists only as a legacy contiguous-scale key in `_x`
+ * tables; the UI never references it. Full range = (1, 6plus).
  */
 
-export type BedroomKey = "all" | "1" | "2" | "3" | "4" | "5" | "6plus";
+/** UI bedroom levels — never include bare `"6"`. */
+export type BedLevel = "1" | "2" | "3" | "4" | "5" | "6plus";
 export type TierKey = "all" | "premium" | "basic";
 
 export type TypeFilter = {
-  bedrooms: BedroomKey;
+  bedMin: BedLevel;
+  bedMax: BedLevel;
   tier: TierKey;
 };
 
 /** Resolved keys for `_x` table lookups. */
 export type XFilterKey = {
-  bed_bucket: BedroomKey;
+  bed_min: BedLevel;
+  bed_max: BedLevel;
   tier: TierKey;
 };
 
-export const BEDROOM_OPTIONS: { key: BedroomKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "1", label: "1" },
-  { key: "2", label: "2" },
-  { key: "3", label: "3" },
-  { key: "4", label: "4" },
-  { key: "5", label: "5" },
-  { key: "6plus", label: "6+" },
-];
+/** Ordered UI thumb positions (index 0..5). */
+export const BED_LEVELS: BedLevel[] = ["1", "2", "3", "4", "5", "6plus"];
+
+export const BED_LEVEL_LABELS: Record<BedLevel, string> = {
+  "1": "1",
+  "2": "2",
+  "3": "3",
+  "4": "4",
+  "5": "5",
+  "6plus": "6+",
+};
 
 export const TIER_OPTIONS: { key: TierKey; label: string }[] = [
   { key: "all", label: "All ads" },
@@ -36,37 +41,77 @@ export const TIER_OPTIONS: { key: TierKey; label: string }[] = [
   { key: "basic", label: "Basic" },
 ];
 
-export const DEFAULT_TYPE_FILTER: TypeFilter = { bedrooms: "all", tier: "all" };
+export const DEFAULT_TYPE_FILTER: TypeFilter = {
+  bedMin: "1",
+  bedMax: "6plus",
+  tier: "all",
+};
+
+export function bedLevelIndex(level: BedLevel): number {
+  return BED_LEVELS.indexOf(level);
+}
+
+export function bedLevelAt(index: number): BedLevel {
+  const clamped = Math.max(0, Math.min(BED_LEVELS.length - 1, index));
+  return BED_LEVELS[clamped]!;
+}
 
 export function resolveXFilter(filter: TypeFilter): XFilterKey {
-  return { bed_bucket: filter.bedrooms, tier: filter.tier };
+  const minIdx = bedLevelIndex(filter.bedMin);
+  const maxIdx = bedLevelIndex(filter.bedMax);
+  const lo = Math.min(minIdx, maxIdx);
+  const hi = Math.max(minIdx, maxIdx);
+  return {
+    bed_min: bedLevelAt(lo),
+    bed_max: bedLevelAt(hi),
+    tier: filter.tier,
+  };
+}
+
+export function isFullBedRange(filter: TypeFilter): boolean {
+  const key = resolveXFilter(filter);
+  return key.bed_min === "1" && key.bed_max === "6plus";
 }
 
 export function isFilterActive(filter: TypeFilter): boolean {
-  return filter.bedrooms !== "all" || filter.tier !== "all";
+  return !isFullBedRange(filter) || filter.tier !== "all";
 }
 
 export function typeFilterLabel(filter: TypeFilter): string {
+  const key = resolveXFilter(filter);
   const bed =
-    filter.bedrooms === "all"
+    key.bed_min === "1" && key.bed_max === "6plus"
       ? "all bedrooms"
-      : filter.bedrooms === "6plus"
-        ? "6+-bed"
-        : `${filter.bedrooms}-bed`;
+      : key.bed_min === key.bed_max
+        ? key.bed_min === "6plus"
+          ? "6+-bed"
+          : `${key.bed_min}-bed`
+        : `${BED_LEVEL_LABELS[key.bed_min]}-${BED_LEVEL_LABELS[key.bed_max]}-bed`;
   if (filter.tier === "all") return bed;
-  if (filter.bedrooms === "all") return `${filter.tier} ads`;
+  if (key.bed_min === "1" && key.bed_max === "6plus") return `${filter.tier} ads`;
   return `${bed} · ${filter.tier}`;
 }
 
-/** @deprecated Round 2 single-dimension resolve — kept for any residual callers. */
+export function bedRangeLabel(filter: TypeFilter): string {
+  const key = resolveXFilter(filter);
+  if (key.bed_min === "1" && key.bed_max === "6plus") return "All";
+  if (key.bed_min === key.bed_max) return BED_LEVEL_LABELS[key.bed_min];
+  return `${BED_LEVEL_LABELS[key.bed_min]}-${BED_LEVEL_LABELS[key.bed_max]}`;
+}
+
+/** @deprecated Round 2 single-dimension resolve — residual callers only. */
 export type TypeDimKey = {
   type_dim: "all" | "bedrooms" | "tile_kind";
   type_key: string;
 };
 
 export function resolveTypeDim(filter: TypeFilter): TypeDimKey {
-  if (filter.bedrooms !== "all") {
-    return { type_dim: "bedrooms", type_key: filter.bedrooms };
+  const key = resolveXFilter(filter);
+  if (!(key.bed_min === "1" && key.bed_max === "6plus")) {
+    // Single-bucket only; ranges have no `_by_type` equivalent.
+    if (key.bed_min === key.bed_max) {
+      return { type_dim: "bedrooms", type_key: key.bed_min };
+    }
   }
   if (filter.tier !== "all") {
     return { type_dim: "tile_kind", type_key: filter.tier };

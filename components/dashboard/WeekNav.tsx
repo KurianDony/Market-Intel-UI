@@ -48,7 +48,7 @@ export function WeekNav({
             return (
               <span
                 key={week}
-                title={`${formatWeekLong(week)} — no collection this week`}
+                title={`${formatWeekLong(week)} - no collection this week`}
                 className="px-1.5 py-1 text-[10px] tabular-nums line-through"
                 style={{ color: INK_40 }}
               >
@@ -61,7 +61,7 @@ export function WeekNav({
             <Link
               key={week}
               href={`${basePath}?week=${week}`}
-              title={`${formatWeekLong(week)}${isSplitFetchWeek(week) ? " — split fetch, collapsed to one ISO week" : ""}`}
+              title={`${formatWeekLong(week)}${isSplitFetchWeek(week) ? " - split fetch, collapsed to one ISO week" : ""}`}
               className="border px-1.5 py-1 text-[10px] tabular-nums transition-colors hover:border-white"
               style={{
                 borderColor: active ? INK_100 : INK_20,
@@ -104,12 +104,12 @@ function StepLink({ href, label }: { href: string | null; label: string }) {
 export function WeekNavFootnote({ gapWeeks }: { gapWeeks: string[] }) {
   return (
     <p className="mb-6 text-[10px] uppercase tracking-[0.1em]" style={{ color: INK_60 }}>
-      * split-fetch week — two legacy snapshots collapsed to one ISO week
+      * split-fetch week - two legacy snapshots collapsed to one ISO week
       {gapWeeks.length > 0 && (
         <>
           {" · "}
           {gapWeeks.length} gap {gapWeeks.length === 1 ? "week" : "weeks"} (
-          {gapWeeks.map((w) => formatWeekLong(w)).join(", ")}) — no collection, shown as breaks
+          {gapWeeks.map((w) => formatWeekLong(w)).join(", ")}) - no collection, shown as breaks
         </>
       )}
     </p>

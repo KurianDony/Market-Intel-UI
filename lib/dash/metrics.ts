@@ -11,7 +11,7 @@ export const RATIO_BAND_LOW = -0.5;
 export const RATIO_BAND_HIGH = 0.4;
 
 export function ratioBand(value: number | null | undefined, digits = 1): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   const lo = (value + RATIO_BAND_LOW).toFixed(digits);
   const hi = (value + RATIO_BAND_HIGH).toFixed(digits);
   return `${lo} – ${hi}`;
@@ -26,20 +26,20 @@ export function vsBaselinePct(
 }
 
 export function formatSignedPct(pct: number | null): string {
-  if (pct == null) return "—";
+  if (pct == null) return "-";
   const sign = pct > 0 ? "+" : "";
   return `${sign}${pct.toFixed(0)}%`;
 }
 
 export function formatSignedNumber(value: number | null | undefined, digits = 0): string {
-  if (value == null) return "—";
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  if (value == null) return "-";
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${Math.abs(value).toFixed(digits)}`;
 }
 
 export function formatSignedCurrency(value: number | null | undefined): string {
-  if (value == null) return "—";
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  if (value == null) return "-";
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${formatCurrency(Math.abs(value))}`;
 }
 
@@ -71,12 +71,12 @@ export function firstLastChange(
 }
 
 export function formatFirstLastCurrency(change: FirstLast | null): string {
-  if (!change) return "—";
+  if (!change) return "-";
   return `${formatCurrency(change.first)} → ${formatCurrency(change.last)} (${formatSignedCurrency(change.delta)})`;
 }
 
 export function formatFirstLastCount(change: FirstLast | null): string {
-  if (!change) return "—";
+  if (!change) return "-";
   return `${change.first} → ${change.last} (${formatSignedNumber(change.delta)})`;
 }
 

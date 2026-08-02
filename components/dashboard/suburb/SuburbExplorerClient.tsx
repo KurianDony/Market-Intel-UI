@@ -44,7 +44,7 @@ import {
   type TypeFilter,
 } from "@/lib/dash/type-filter";
 import { INK_20, INK_40, INK_60 } from "@/lib/palette/v2";
-import type { DashSuburbCohortX } from "@/lib/types/dash-phase3";
+import type { DashSuburbCohortX, DashSuburbMovementX } from "@/lib/types/dash-phase3";
 
 export function SuburbExplorerClient({
   data,
@@ -72,7 +72,7 @@ export function SuburbExplorerClient({
     supplyByType,
     supplyX,
     cohortsX,
-    movement,
+    movementX,
     coverage,
     bandLiquidity,
     bandDefinitions,
@@ -88,23 +88,42 @@ export function SuburbExplorerClient({
   const priceTyped = useMemo(
     () =>
       priceStatsX.filter(
-        (r) => r.bed_bucket === xKey.bed_bucket && r.tier === xKey.tier,
+        (r) =>
+          r.bed_min === xKey.bed_min &&
+          r.bed_max === xKey.bed_max &&
+          r.tier === xKey.tier,
       ),
     [priceStatsX, xKey],
   );
   const supplyTyped = useMemo(
     () =>
       supplyX.filter(
-        (r) => r.bed_bucket === xKey.bed_bucket && r.tier === xKey.tier,
+        (r) =>
+          r.bed_min === xKey.bed_min &&
+          r.bed_max === xKey.bed_max &&
+          r.tier === xKey.tier,
       ),
     [supplyX, xKey],
   );
   const cohortsTyped = useMemo(
     () =>
       cohortsX.filter(
-        (r) => r.bed_bucket === xKey.bed_bucket && r.tier === xKey.tier,
+        (r) =>
+          r.bed_min === xKey.bed_min &&
+          r.bed_max === xKey.bed_max &&
+          r.tier === xKey.tier,
       ),
     [cohortsX, xKey],
+  );
+  const moveTyped = useMemo(
+    () =>
+      movementX.filter(
+        (r) =>
+          r.bed_min === xKey.bed_min &&
+          r.bed_max === xKey.bed_max &&
+          r.tier === xKey.tier,
+      ),
+    [movementX, xKey],
   );
 
   // Unfiltered: G1-canonical price_stats. Under filter: matching _x segment.
@@ -125,7 +144,7 @@ export function SuburbExplorerClient({
       : [];
 
   const price = rowAsOf(priceSource, selectedWeek);
-  const move = rowAsOf(movement, selectedWeek);
+  const move = rowAsOf(moveTyped, selectedWeek);
   const supplyRow = rowAsOf(supplyTyped, selectedWeek);
 
   const g2Week =
@@ -157,14 +176,14 @@ export function SuburbExplorerClient({
 
   const weeklyAligned = alignToAxis(weekly, axis);
   const priceAligned = alignToAxis(priceSource, axis);
-  const moveAligned = alignToAxis(movement, axis);
+  const moveAligned = alignToAxis(moveTyped, axis);
   const supplyAligned = alignToAxis(supplyTyped, axis);
 
   const series = (pick: (r: (typeof weekly)[number]) => number | null) =>
     weeklyAligned.map(({ week, row }) => ({ week, value: row ? pick(row) : null }));
   const priceSeries = (pick: (r: (typeof priceSource)[number]) => number | null) =>
     priceAligned.map(({ week, row }) => ({ week, value: row ? pick(row) : null }));
-  const moveSeries = (pick: (r: (typeof movement)[number]) => number | null) =>
+  const moveSeries = (pick: (r: DashSuburbMovementX) => number | null) =>
     moveAligned.map(({ week, row }) => ({ week, value: row ? pick(row) : null }));
 
   const p50Series = priceSeries((r) => r.p50);
@@ -173,7 +192,6 @@ export function SuburbExplorerClient({
       ? supplyAligned.map(({ week, row }) => ({ week, value: row?.live_count ?? null }))
       : series((r) => r.live_listings ?? r.total_listings);
 
-  // Banner / C11 seekers: under filter = demand_ratio × segment live_count (estimate).
   const segmentLive = supplyRow?.live_count ?? null;
   const bannerSeekers =
     filtered
@@ -309,18 +327,17 @@ export function SuburbExplorerClient({
       week,
       carried,
       repriced: row.repriced_count,
+      repriceUp: row.reprice_up,
+      repriceDown: row.reprice_down,
       newCount: row.new_count,
       gone: row.gone_count,
     };
   });
 
-  const netPoints = !filtered
-    ? moveAligned.map(({ week, row }) => ({ week, net: row?.net_flow ?? null }))
-    : axis.map((week) => {
-        const sx = supplyTyped.find((c) => c.iso_week === week);
-        if (!sx) return { week, net: null };
-        return { week, net: sx.new_count - sx.gone_count };
-      });
+  const netPoints = moveAligned.map(({ week, row }) => ({
+    week,
+    net: row ? row.new_count - row.gone_count : null,
+  }));
 
   const percentileWeeks = priceAligned.map(({ week, row }) => ({
     week,
@@ -353,13 +370,20 @@ export function SuburbExplorerClient({
       }
     : null;
 
-  // C12 merged all-time ratio change (was C14).
   const ratioChangeLabel =
     spine?.alltime_ratio_delta == null
       ? null
       : `${formatRatio(spine.alltime_first_ratio)} → ${formatRatio(spine.alltime_latest_ratio)}`;
 
   const demandDelta4w = seriesDelta(demandSeries, selectedWeek, 4);
+
+  const repriceWeeks = recentMoveRows(moveTyped, selectedWeek, 3);
+  const domValue =
+    move?.dom_median == null
+      ? "-"
+      : move.dom_p25 != null && move.dom_p75 != null
+        ? `${move.dom_median}d · p25-p75 ${move.dom_p25}-${move.dom_p75}`
+        : `${move.dom_median}d`;
 
   return (
     <DashboardShell snapshotDate={formatWeekLong(selectedWeek)}>
@@ -388,7 +412,7 @@ export function SuburbExplorerClient({
       <TypeFilterBar
         value={filter}
         onChange={setFilter}
-        note="Bed × tier combine freely · applies to the entire page"
+        note="Bed range × tier combine freely · applies to the entire page"
       />
 
       <ExpandableStatStrip
@@ -419,7 +443,7 @@ export function SuburbExplorerClient({
             sub: filtered
               ? "estimate · demand_ratio × segment live"
               : spine?.implied_seekers_stale_weeks && spine.implied_seekers_stale_weeks > 0
-                ? `stale ${spine.implied_seekers_stale_weeks}w · basis ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "—"}`
+                ? `stale ${spine.implied_seekers_stale_weeks}w · basis ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "-"}`
                 : "demand_ratio × live listings",
             delta: seekerDelta,
             series: impliedSeries,
@@ -433,7 +457,7 @@ export function SuburbExplorerClient({
           },
           {
             label: "Rank in area",
-            value: spine?.rank_in_area != null ? `#${spine.rank_in_area}` : "—",
+            value: spine?.rank_in_area != null ? `#${spine.rank_in_area}` : "-",
             sub: filtered
               ? `suburb-wide · ${areaRow ? `of ${areaRow.suburb_count}` : "by supply"}`
               : areaRow
@@ -496,6 +520,7 @@ export function SuburbExplorerClient({
         <p
           className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
           style={{ borderColor: INK_20, color: INK_60 }}
+          data-g2-banner=""
         >
           {g2Label}
         </p>
@@ -504,8 +529,8 @@ export function SuburbExplorerClient({
             className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
             style={{ borderColor: INK_40, color: INK_60 }}
           >
-            Outside the G1-capable set — no seeker, demand-ratio, average-rent or rank series
-            is collected here. Every G1 field below reads “—”; the listing-level figures are real.
+            Outside the G1-capable set - no seeker, demand-ratio, average-rent or rank series
+            is collected here. Every G1 field below reads &quot;-&quot;; the listing-level figures are real.
           </p>
         )}
         {identity.g1_capable && spine == null && (
@@ -513,25 +538,26 @@ export function SuburbExplorerClient({
             className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
             style={{ borderColor: INK_40, color: INK_60 }}
           >
-            No G1 spine row for w/c {formatWeekLong(selectedWeek)} — demand fields read “—” for
+            No G1 spine row for w/c {formatWeekLong(selectedWeek)} - demand fields read &quot;-&quot; for
             this week.
           </p>
         )}
       </div>
 
-      {/* ── D · MOVEMENT / LIQUIDITY (first) ───────────────────────── */}
-      <SectionHeading
-        letter="D"
-        title="Movement — liquidity"
-        subtitle={`${g2Label} · cohort panels filter: ${typeFilterLabel(filter)}`}
-      />
+      {/* ── A · MOVEMENT ──────────────────────────────────────────── */}
+      <SectionHeading letter="A" title="Movement - liquidity" />
 
       <DashboardCard
         title="Weekly composition"
         subtitle="carried old stock · repriced · new supply above · disappeared below · click a bar for detail"
         tall
+        autoHeight
       >
-        <CompositionChart points={compositionPoints} gapWeeks={gapWeeks} />
+        <CompositionChart
+          points={compositionPoints}
+          gapWeeks={gapWeeks}
+          selectedWeek={move?.iso_week ?? selectedWeek}
+        />
       </DashboardCard>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -540,7 +566,7 @@ export function SuburbExplorerClient({
           cohort={removedLatest}
           trend={removedTrend}
           gapWeeks={gapWeeks}
-          emptyHint="Removed cohort is empty in the live week by design — pick an earlier week."
+          emptyHint="Removed cohort is empty in the live week by design - pick an earlier week."
         />
         <CohortPanel
           title="What was added"
@@ -555,32 +581,37 @@ export function SuburbExplorerClient({
         <MetricCard
           code="D24"
           label="Days on market (median)"
-          value={move?.dom_median_days == null ? "—" : `${move.dom_median_days}d`}
-          source="dash_suburb_movement.dom_median_days (capped at 120)"
-          explain="Median days a live room has been on the market."
-          series={moveSeries((r) => r.dom_median_days)}
+          value={domValue}
+          source="dash_suburb_movement_x.dom_median, .dom_p25, .dom_p75"
+          explain="Median days a live room has been on the market, with the interquartile band."
+          series={moveSeries((r) => r.dom_median)}
           seriesFormat="days"
         />
         <MetricCard
           code="D21"
           label="Reprice behaviour"
-          value={move ? `${move.reprice_up}↑ / ${move.reprice_down}↓` : "—"}
-          source="dash_suburb_movement.reprice_up, .reprice_down, .repriced_count"
+          value={move ? `${move.reprice_up}↑ / ${move.reprice_down}↓` : "-"}
+          source="dash_suburb_movement_x.reprice_up, .reprice_down, .repriced_count"
           explain="Of listings that changed price, how many rose vs fell. Mostly down = softening."
           table={
-            move
+            repriceWeeks.length > 0
               ? {
-                  cols: ["repriced", "up", "down"],
-                  rows: [[move.repriced_count, move.reprice_up, move.reprice_down]],
+                  cols: ["week", "repriced", "up", "down"],
+                  rows: repriceWeeks.map((r) => [
+                    formatWeekLong(r.iso_week),
+                    r.repriced_count,
+                    r.reprice_up,
+                    r.reprice_down,
+                  ]),
                 }
               : undefined
           }
         />
         <MetricCard
           code="D17"
-          label="Turnover — share cleared"
-          value={move?.turnover == null ? "—" : Number(move.turnover).toFixed(2)}
-          source="dash_suburb_movement.turnover (gone ÷ stock)"
+          label="Turnover - share cleared"
+          value={move?.turnover == null ? "-" : Number(move.turnover).toFixed(2)}
+          source="dash_suburb_movement_x.turnover (gone ÷ stock)"
           explain="Fraction of stock that cleared this week. 0.20 ≈ a fifth turned over."
           series={moveSeries((r) => (r.turnover == null ? null : Number(r.turnover)))}
         />
@@ -588,7 +619,7 @@ export function SuburbExplorerClient({
 
       <div className="mt-3">
         <DashboardCard
-          title="D20 · Liquidity by price band"
+          title="Liquidity by price band"
           subtitle={
             topBand
               ? `clears most at ${topBand.band_label} (${Number(topBand.pct_moved).toFixed(0)}% moved)`
@@ -600,12 +631,8 @@ export function SuburbExplorerClient({
         </DashboardCard>
       </div>
 
-      {/* ── A · PRICE ─────────────────────────────────────────────── */}
-      <SectionHeading
-        letter="A"
-        title="Price — what rooms cost"
-        subtitle={`${g2Label} · filter: ${typeFilterLabel(filter)}`}
-      />
+      {/* ── B · PRICE ─────────────────────────────────────────────── */}
+      <SectionHeading letter="B" title="Price - what rooms cost" />
       <MetricGrid>
         <MetricCard
           code="A1"
@@ -616,7 +643,7 @@ export function SuburbExplorerClient({
               ? "dash_suburb_price_stats_x.p50"
               : "dash_suburb_price_stats.p50"
           }
-          explain="The middle live-listing rent for the selected filter — half ask more, half less."
+          explain="The middle live-listing rent for the selected filter - half ask more, half less."
           series={p50Series}
           seriesFormat="currency"
           showSpark={false}
@@ -629,7 +656,7 @@ export function SuburbExplorerClient({
           expanderExtra={
             volNote ? (
               <p style={{ color: INK_60 }}>
-                {volNote} — pending director keep/kill.
+                {volNote} - pending director keep/kill.
               </p>
             ) : null
           }
@@ -641,7 +668,7 @@ export function SuburbExplorerClient({
           value={
             price?.p10 != null && price?.p90 != null
               ? `${formatCurrency(price.p10)} – ${formatCurrency(price.p90)}`
-              : "—"
+              : "-"
           }
           source={
             filtered
@@ -672,7 +699,7 @@ export function SuburbExplorerClient({
 
       <div className="mt-3">
         <DashboardCard
-          title="A4 · Percentile bands over time"
+          title="Percentile bands over time"
           subtitle="Stacked p20/p40/p60/p80/p100 greys · white separators · gap weeks break · hover dims other bands"
           span={2}
           tall
@@ -681,20 +708,16 @@ export function SuburbExplorerClient({
         </DashboardCard>
       </div>
 
-      {/* ── B · SUPPLY ────────────────────────────────────────────── */}
-      <SectionHeading
-        letter="B"
-        title="Supply — how much stock"
-        subtitle={`filter: ${typeFilterLabel(filter)}`}
-      />
+      {/* ── C · SUPPLY ────────────────────────────────────────────── */}
+      <SectionHeading letter="C" title="Supply - how much stock" />
       <MetricGrid>
         <MetricCard
           code="B7"
           label="Supply level"
           value={
             supplyValue == null
-              ? "—"
-              : `${supplyValue} · area avg ${areaListingAvg == null ? "—" : areaListingAvg.toFixed(1)} (${formatSignedPct(vsBaselinePct(supplyValue, areaListingAvg))})`
+              ? "-"
+              : `${supplyValue} · area avg ${areaListingAvg == null ? "-" : areaListingAvg.toFixed(1)} (${formatSignedPct(vsBaselinePct(supplyValue, areaListingAvg))})`
           }
           source={
             filtered
@@ -720,7 +743,7 @@ export function SuburbExplorerClient({
           value={
             addedLatest
               ? `${addedLatest.count} new @ ${formatCurrency(addedLatest.median_rent)}`
-              : "—"
+              : "-"
           }
           source="dash_suburb_cohorts_x (cohort=added)"
           explain="Fresh listings arriving and the prices they entered at (first observed rent)."
@@ -743,8 +766,8 @@ export function SuburbExplorerClient({
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <DashboardCard
-          title="B8 · Supply by type"
-          subtitle="listing_category counts (g2_counts) — count-only, not price-filterable"
+          title="Supply by type"
+          subtitle="listing_category counts (g2_counts) - count-only, not price-filterable"
         >
           {categorySupply.length === 0 ? (
             <p className="text-[12px]" style={{ color: INK_60 }}>
@@ -767,7 +790,7 @@ export function SuburbExplorerClient({
           )}
         </DashboardCard>
         <DashboardCard
-          title="B10 · Weekly net supply"
+          title="Weekly net supply"
           subtitle="positive above axis · negative below · click a bar for the exact delta"
         >
           <NetSupplyChart points={netPoints} gapWeeks={gapWeeks} />
@@ -794,19 +817,15 @@ export function SuburbExplorerClient({
         </DashboardCard>
       </div>
 
-      {/* ── C · DEMAND ────────────────────────────────────────────── */}
-      <SectionHeading
-        letter="C"
-        title="Demand — suburb-wide"
-        subtitle="G1 suburb-level demand ratio · implied seekers estimate under bed×tier filter"
-      />
+      {/* ── D · DEMAND ────────────────────────────────────────────── */}
+      <SectionHeading letter="D" title="Demand - suburb-wide" />
       <MetricGrid>
         <MetricCard
           code="C12"
           label="Demand ratio"
-          value={spine?.demand_ratio == null ? "—" : ratioBand(Number(spine.demand_ratio))}
+          value={spine?.demand_ratio == null ? "-" : ratioBand(Number(spine.demand_ratio))}
           source="dash_suburb_weekly.demand_ratio (band = [r−0.5, r+0.4])"
-          explain="Seekers per available room — the landlord's view of competition. Shown as a band because the source value is coarse."
+          explain="Seekers per available room - the landlord's view of competition. Shown as a band because the source value is coarse."
           showSpark={false}
           seriesChart="line"
           series={demandSeries}
@@ -850,15 +869,15 @@ export function SuburbExplorerClient({
             filtered
               ? "estimate"
               : spine?.implied_seekers_stale_weeks && spine.implied_seekers_stale_weeks > 0
-                ? `Basis week ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "—"} · stale ${spine.implied_seekers_stale_weeks}w`
+                ? `Basis week ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "-"} · stale ${spine.implied_seekers_stale_weeks}w`
                 : undefined
           }
           expanderExtra={
             !filtered ? (
               <p style={{ color: INK_60 }}>
-                Area avg {areaSeekerAvg == null ? "—" : areaSeekerAvg.toFixed(1)}
+                Area avg {areaSeekerAvg == null ? "-" : areaSeekerAvg.toFixed(1)}
                 {" · "}
-                Syd avg {citySeekerAvg == null ? "—" : citySeekerAvg.toFixed(1)}
+                Syd avg {citySeekerAvg == null ? "-" : citySeekerAvg.toFixed(1)}
               </p>
             ) : null
           }
@@ -867,8 +886,8 @@ export function SuburbExplorerClient({
 
       <div className="mt-3">
         <DashboardCard
-          title="C12 · Demand ratio range"
-          subtitle="forex-style high–low band [r−0.5, r+0.4] · gap weeks break"
+          title="Demand ratio range"
+          subtitle="forex-style high-low band [r−0.5, r+0.4] · gap weeks break"
         >
           <DemandRatioBandChart
             axis={axis}
@@ -902,15 +921,15 @@ export function SuburbExplorerClient({
         <MetricCard
           code="E—"
           label="Sample size trend"
-          value={cov?.sample_n == null ? "—" : `n=${cov.sample_n}`}
+          value={cov?.sample_n == null ? "-" : `n=${cov.sample_n}`}
           source="dash_suburb_price_stats.sample_n"
-          explain="Listings priced each week — the basis behind every percentile on this page."
+          explain="Listings priced each week - the basis behind every percentile on this page."
           series={priceSeries((r) => r.sample_n)}
         />
       </MetricGrid>
 
-      {/* ── G · GEOGRAPHY ─────────────────────────────────────────── */}
-      <SectionHeading letter="G" title="Geography" />
+      {/* ── F · GEOGRAPHY ─────────────────────────────────────────── */}
+      <SectionHeading letter="F" title="Geography" />
       <MetricGrid>
         <MetricCard
           code="G27"
@@ -928,7 +947,7 @@ export function SuburbExplorerClient({
         <MetricCard
           code="G—"
           label="Area coverage this week"
-          value={areaRow ? `${areaRow.suburb_count} suburbs captured` : "—"}
+          value={areaRow ? `${areaRow.suburb_count} suburbs captured` : "-"}
           source="dash_area_weekly.suburb_count"
           explain="How many suburbs in this area reported in the selected week."
         />
@@ -936,10 +955,10 @@ export function SuburbExplorerClient({
 
       <div className="mt-8 border-t pt-4" style={{ borderColor: INK_20 }}>
         <p className="mb-3 text-[10px] uppercase tracking-[0.1em]" style={{ color: INK_40 }}>
-          Week-indexed figures read the Phase-3 ISO-week tables — one row per week. Under a
-          bed×tier filter, banner rent/supply/seekers resolve from `_x` segments; rank and
-          demand ratio stay suburb-wide and are tagged. Section order: Movement → Price →
-          Supply → Demand → Confidence → Geography.
+          Week-indexed figures read the Phase-3 ISO-week tables - one row per week. Under a
+          bed-range × tier filter, banner rent/supply/seekers and movement resolve from `_x`
+          segments; rank and demand ratio stay suburb-wide and are tagged. Section order:
+          Movement → Price → Supply → Demand → Confidence → Geography.
         </p>
         <MiniTable
           cols={["axis weeks", "weeks with data", "gap weeks", "selected", "filter"]}
@@ -971,6 +990,17 @@ export function SuburbExplorerClient({
       </p>
     </DashboardShell>
   );
+}
+
+function recentMoveRows(
+  rows: DashSuburbMovementX[],
+  selectedWeek: string,
+  n: number,
+): DashSuburbMovementX[] {
+  return rows
+    .filter((r) => r.iso_week <= selectedWeek)
+    .sort((a, b) => (a.iso_week < b.iso_week ? 1 : -1))
+    .slice(0, n);
 }
 
 function latestCohort(

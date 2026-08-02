@@ -1,17 +1,17 @@
-/** Display formatting only — no aggregation or derived metrics. */
+/** Display formatting only - no aggregation or derived metrics. */
 
 export function formatCurrency(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return "—";
+  if (value == null || Number.isNaN(value)) return "-";
   return `$${value.toLocaleString("en-AU", { maximumFractionDigits: value % 1 === 0 ? 0 : 2 })}`;
 }
 
 export function formatCount(value: number | null | undefined): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   return value.toLocaleString("en-AU");
 }
 
 export function formatRatio(value: number | null | undefined): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   return value.toLocaleString("en-AU", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 }
 
@@ -43,7 +43,7 @@ export function formatWowDelta(
 }
 
 export function formatActivatedAt(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
 }
