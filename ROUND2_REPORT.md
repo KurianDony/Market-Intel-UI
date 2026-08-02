@@ -58,7 +58,11 @@ Also: `npm run lint` (0 errors), `npm run verify` (prod build) clean.
 
 ## Deploy
 
-`dev` → `main` after green QA. Production: **marketmeerkat.guru** (Vercel Production from `main`).
+`dev` → `main` after green QA (`edbf4b8`). Production READY:
+
+- Deployment: `dpl_A5L2BTtJxP2jL5k9xZFfHcYbk2c8`
+- Alias: **marketmeerkat.guru**
+- Prod harness re-run: Round 2 visual pass clean at 1440/390 (Strathfield, gap-adjacent week, Mayfield West).
 
 ## Open items for director
 
