@@ -1,0 +1,965 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { ExpandableStatStrip } from "@/components/dashboard/ExpandableStatStrip";
+import { DashboardCard } from "@/components/dashboard/DashboardCard";
+import { SectionHeading } from "@/components/dashboard/SectionHeading";
+import { ConfidenceBadge } from "@/components/dashboard/ConfidenceBadge";
+import { MetricCard, MetricGrid, MiniTable } from "@/components/dashboard/MetricCard";
+import { WeekNav, WeekNavFootnote } from "@/components/dashboard/WeekNav";
+import { TypeFilterBar } from "@/components/dashboard/TypeFilterBar";
+import { DeltaChip } from "@/components/dashboard/DeltaChip";
+import { WeeklyLineChart } from "@/components/dashboard/charts/WeeklyLineChart";
+import { BandLiquidityChart } from "@/components/dashboard/charts/BandLiquidityChart";
+import { HistogramChart } from "@/components/dashboard/charts/HistogramChart";
+import { PercentileBandChart } from "@/components/dashboard/charts/PercentileBandChart";
+import { CompositionChart } from "@/components/dashboard/charts/CompositionChart";
+import { NetSupplyChart } from "@/components/dashboard/charts/NetSupplyChart";
+import { DemandRatioBandChart } from "@/components/dashboard/charts/DemandRatioBandChart";
+import { CohortTrendChart } from "@/components/dashboard/charts/CohortTrendChart";
+import type { SuburbExplorerData } from "@/lib/dash/explorer-queries";
+import {
+  alignToAxis,
+  formatWeekLong,
+  indexByWeek,
+  rowAsOf,
+} from "@/lib/dash/iso-week";
+import { resolveDelta, seriesDelta } from "@/lib/dash/deltas";
+import {
+  bestClearingBand,
+  fillBandLadder,
+  formatSignedNumber,
+  formatSignedPct,
+  ratioBand,
+  vsBaselinePct,
+} from "@/lib/dash/metrics";
+import { formatCount, formatCurrency, formatRatio } from "@/lib/dash/format";
+import {
+  DEFAULT_TYPE_FILTER,
+  LISTING_CATEGORY_LABELS,
+  resolveTypeDim,
+  typeFilterLabel,
+  type TypeFilter,
+} from "@/lib/dash/type-filter";
+import { INK_20, INK_40, INK_60 } from "@/lib/palette/v2";
+import type { DashSuburbCohort } from "@/lib/types/dash-phase3";
+
+export function SuburbExplorerClient({
+  data,
+  stateSlug,
+  areaSlug,
+}: {
+  data: SuburbExplorerData;
+  stateSlug: string;
+  areaSlug: string;
+}) {
+  const [filter, setFilter] = useState<TypeFilter>(DEFAULT_TYPE_FILTER);
+  const typeDim = resolveTypeDim(filter);
+
+  const {
+    identity,
+    areaName,
+    axis,
+    gapWeeks,
+    dataWeeks,
+    selectedWeek,
+    weekly,
+    priceStats,
+    priceStatsByType,
+    supplyByType,
+    cohorts,
+    movement,
+    coverage,
+    bandLiquidity,
+    bandDefinitions,
+    histogram,
+    areaWeekly,
+    cityWeekly,
+    areaPeers,
+  } = data;
+
+  const basePath = `/${stateSlug}/${areaSlug}/${identity.slug.replace(/-\d+$/, "")}`;
+  const spine = indexByWeek(weekly).get(selectedWeek) ?? null;
+  const cov = indexByWeek(coverage).get(selectedWeek) ?? null;
+
+  const priceTyped = useMemo(
+    () =>
+      priceStatsByType.filter(
+        (r) => r.type_dim === typeDim.type_dim && r.type_key === typeDim.type_key,
+      ),
+    [priceStatsByType, typeDim],
+  );
+  const supplyTyped = useMemo(
+    () =>
+      supplyByType.filter(
+        (r) => r.type_dim === typeDim.type_dim && r.type_key === typeDim.type_key,
+      ),
+    [supplyByType, typeDim],
+  );
+  const cohortsTyped = useMemo(
+    () =>
+      cohorts.filter(
+        (r) => r.type_dim === typeDim.type_dim && r.type_key === typeDim.type_key,
+      ),
+    [cohorts, typeDim],
+  );
+
+  // Fallback to untyped price_stats when by_type is empty for this filter.
+  const priceSource: { iso_week: string; sample_n: number; p10: number | null; p25: number | null; p50: number | null; p75: number | null; p90: number | null; mean_rent: number | null; dispersion_9010: number | null; iqr_7525: number | null }[] =
+    priceTyped.length > 0 ? priceTyped : typeDim.type_dim === "all" ? priceStats : [];
+
+  const price = rowAsOf(priceSource, selectedWeek);
+  const move = rowAsOf(movement, selectedWeek);
+  const supplyRow = rowAsOf(supplyTyped, selectedWeek);
+
+  const g2Week =
+    [price?.iso_week, move?.iso_week, supplyRow?.iso_week].filter(Boolean).sort().pop() ?? null;
+  const g2Behind = g2Week ? axis.indexOf(selectedWeek) - axis.indexOf(g2Week) : null;
+  const g2Label = g2Week
+    ? `G2 listing data as at w/c ${formatWeekLong(g2Week)}${g2Behind && g2Behind > 0 ? ` · ${g2Behind} wk behind the demand spine` : ""}`
+    : "No listing-level (G2) data recorded for this suburb";
+
+  const bands = fillBandLadder(
+    g2Week ? bandLiquidity.filter((b) => b.iso_week === g2Week) : [],
+    bandDefinitions,
+  );
+
+  const areaRow = areaWeekly.find((r) => r.iso_week === selectedWeek) ?? null;
+  const cityRow = cityWeekly.find((r) => r.iso_week === selectedWeek) ?? null;
+  const areaSeekerAvg =
+    areaRow?.total_implied_seekers != null && areaRow.suburb_count > 0
+      ? areaRow.total_implied_seekers / areaRow.suburb_count
+      : null;
+  const citySeekerAvg =
+    cityRow?.total_implied_seekers != null && cityRow.suburb_count > 0
+      ? cityRow.total_implied_seekers / cityRow.suburb_count
+      : null;
+  const areaListingAvg =
+    areaRow?.total_listings != null && areaRow.suburb_count > 0
+      ? areaRow.total_listings / areaRow.suburb_count
+      : null;
+
+  const weeklyAligned = alignToAxis(weekly, axis);
+  const priceAligned = alignToAxis(priceSource, axis);
+  const moveAligned = alignToAxis(movement, axis);
+  const supplyAligned = alignToAxis(supplyTyped, axis);
+
+  const series = (pick: (r: (typeof weekly)[number]) => number | null) =>
+    weeklyAligned.map(({ week, row }) => ({ week, value: row ? pick(row) : null }));
+  const priceSeries = (pick: (r: (typeof priceSource)[number]) => number | null) =>
+    priceAligned.map(({ week, row }) => ({ week, value: row ? pick(row) : null }));
+  const moveSeries = (pick: (r: (typeof movement)[number]) => number | null) =>
+    moveAligned.map(({ week, row }) => ({ week, value: row ? pick(row) : null }));
+
+  const p50Series = priceSeries((r) => r.p50);
+  const supplySeries =
+    supplyTyped.length > 0
+      ? supplyAligned.map(({ week, row }) => ({ week, value: row?.listings ?? null }))
+      : series((r) => r.live_listings ?? r.total_listings);
+  const impliedSeries = series((r) => r.implied_seekers);
+  const demandSeries = series((r) => (r.demand_ratio == null ? null : Number(r.demand_ratio)));
+
+  const supplyValue =
+    supplyRow?.listings ?? spine?.live_listings ?? spine?.total_listings ?? null;
+  const supplyBasis =
+    supplyRow != null
+      ? typeFilterLabel(filter)
+      : spine?.live_listings != null
+        ? "live"
+        : "carry-forward";
+
+  const topBand = bestClearingBand(bands);
+
+  const rentDelta1w = seriesDelta(p50Series, price?.iso_week ?? selectedWeek, 1);
+  const rentDelta4w = seriesDelta(p50Series, price?.iso_week ?? selectedWeek, 4);
+  const bandDelta1w = seriesDelta(
+    priceSeries((r) => (r.p10 != null && r.p90 != null ? r.p90 - r.p10 : null)),
+    price?.iso_week ?? selectedWeek,
+    1,
+  );
+  // Brief note: director said −7w for dispersion; we ship 1w+4w for consistency.
+  const bandDelta4w = seriesDelta(
+    priceSeries((r) => (r.p10 != null && r.p90 != null ? r.p90 - r.p10 : null)),
+    price?.iso_week ?? selectedWeek,
+    4,
+  );
+  const dispSeries = priceSeries((r) => r.dispersion_9010);
+  const dispDelta1w = seriesDelta(dispSeries, price?.iso_week ?? selectedWeek, 1);
+  const dispDelta4w = seriesDelta(dispSeries, price?.iso_week ?? selectedWeek, 4);
+
+  const supplyDelta = resolveDelta({
+    wow: spine?.wow_total_listings,
+    deltaVsPrevObs:
+      spine && supplySeries.length > 1
+        ? (() => {
+            const pts = supplySeries.filter((p) => p.value != null);
+            if (pts.length < 2) return null;
+            const cur = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            if (cur.week !== selectedWeek) return null;
+            return (cur.value ?? 0) - (prev.value ?? 0);
+          })()
+        : null,
+    prevObsGapWeeks: spine?.prev_obs_gap_weeks,
+    prevObsWeek: spine?.prev_obs_week,
+  });
+
+  const seekerDelta = resolveDelta({
+    wow: null, // wow_seekers deprecated
+    deltaVsPrevObs: (() => {
+      const pts = impliedSeries.filter((p) => p.value != null && p.week <= selectedWeek);
+      if (pts.length < 2) return null;
+      const cur = pts[pts.length - 1];
+      const prev = pts[pts.length - 2];
+      return (cur.value ?? 0) - (prev.value ?? 0);
+    })(),
+    prevObsGapWeeks: spine?.implied_seekers_stale_weeks
+      ? spine.implied_seekers_stale_weeks + 1
+      : spine?.prev_obs_gap_weeks,
+    prevObsWeek: spine?.implied_seekers_basis_week ?? spine?.prev_obs_week,
+  });
+
+  const demandDelta = resolveDelta({
+    wow: spine?.wow_demand_ratio == null ? null : Number(spine.wow_demand_ratio),
+    deltaVsPrevObs: null,
+    prevObsGapWeeks: spine?.prev_obs_gap_weeks,
+    prevObsWeek: spine?.prev_obs_week,
+  });
+
+  const rankDelta = resolveDelta({
+    wow: null,
+    deltaVsPrevObs: (() => {
+      const pts = series((r) => r.rank_in_area).filter(
+        (p) => p.value != null && p.week <= selectedWeek,
+      );
+      if (pts.length < 2) return null;
+      const cur = pts[pts.length - 1];
+      const prev = pts[pts.length - 2];
+      return (cur.value ?? 0) - (prev.value ?? 0);
+    })(),
+    prevObsGapWeeks: spine?.prev_obs_gap_weeks,
+    prevObsWeek: spine?.prev_obs_week,
+  });
+
+  const rentStripDelta = resolveDelta({
+    wow: spine?.wow_avg_rent == null ? null : Number(spine.wow_avg_rent),
+    deltaVsPrevObs: spine?.delta_vs_prev_obs == null ? null : Number(spine.delta_vs_prev_obs),
+    prevObsGapWeeks: spine?.prev_obs_gap_weeks,
+    prevObsWeek: spine?.prev_obs_week,
+    currency: true,
+  });
+
+  const categorySupply = supplyByType.filter(
+    (r) =>
+      r.type_dim === "listing_category" &&
+      r.iso_week === (supplyRow?.iso_week ?? g2Week),
+  );
+
+  const addedLatest = latestCohort(cohortsTyped, "added", selectedWeek);
+  const removedLatest = latestCohort(cohortsTyped, "removed", selectedWeek);
+
+  const addedTrend = cohortTrend(cohortsTyped, "added", axis);
+  const removedTrend = cohortTrend(cohortsTyped, "removed", axis);
+
+  const compositionPoints = moveAligned.map(({ week, row }) => {
+    if (!row) return { week, carried: null, repriced: null, newCount: null, gone: null };
+    const carried = Math.max(0, row.stock - row.new_count - row.repriced_count);
+    return {
+      week,
+      carried,
+      repriced: row.repriced_count,
+      newCount: row.new_count,
+      gone: row.gone_count,
+    };
+  });
+
+  const netPoints =
+    typeDim.type_dim === "all"
+      ? moveAligned.map(({ week, row }) => ({ week, net: row?.net_flow ?? null }))
+      : axis.map((week) => {
+          const added = cohortsTyped.find(
+            (c) => c.iso_week === week && c.cohort === "added",
+          );
+          const removed = cohortsTyped.find(
+            (c) => c.iso_week === week && c.cohort === "removed",
+          );
+          if (!added && !removed) return { week, net: null };
+          return { week, net: (added?.count ?? 0) - (removed?.count ?? 0) };
+        });
+
+  const percentileWeeks = priceAligned.map(({ week, row }) => ({
+    week,
+    p10: row?.p10 ?? null,
+    p25: row?.p25 ?? null,
+    p50: row?.p50 ?? null,
+    p75: row?.p75 ?? null,
+    p90: row?.p90 ?? null,
+  }));
+
+  const volNote =
+    spine?.avg_rent_vol_8w == null
+      ? null
+      : `Typical weekly move ±${formatCurrency(Number(spine.avg_rent_vol_8w))} (8-week volatility)`;
+
+  return (
+    <DashboardShell snapshotDate={formatWeekLong(selectedWeek)}>
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-[32px] font-bold leading-tight tracking-tight">
+          {identity.suburb.toUpperCase()}
+        </h1>
+        <ConfidenceBadge
+          confidence={cov?.confidence ?? null}
+          sampleN={cov?.sample_n}
+          weeksPresent={cov?.weeks_present_4}
+        />
+      </div>
+      <p className="mb-5 text-xs uppercase tracking-[0.15em]" style={{ color: INK_60 }}>
+        {identity.postcode} · {areaName} · {identity.state}
+      </p>
+
+      <WeekNav
+        basePath={basePath}
+        axis={axis}
+        dataWeeks={dataWeeks}
+        selectedWeek={selectedWeek}
+      />
+      <WeekNavFootnote gapWeeks={gapWeeks} />
+
+      <ExpandableStatStrip
+        items={[
+          {
+            label: "Typical rent",
+            value: formatCurrency(price?.p50 ?? (spine?.avg_rent == null ? null : Number(spine.avg_rent))),
+            sub: price ? `G2 p50 · n=${price.sample_n}` : "G1 avg",
+            delta: rentStripDelta,
+            series: p50Series.some((p) => p.value != null)
+              ? p50Series
+              : series((r) => (r.avg_rent == null ? null : Number(r.avg_rent))),
+          },
+          {
+            label: "Supply",
+            value: formatCount(supplyValue),
+            sub: `${supplyBasis} listings`,
+            delta: supplyDelta,
+            series: supplySeries,
+          },
+          {
+            label: "Implied seekers",
+            value: formatCount(spine?.implied_seekers),
+            sub:
+              spine?.implied_seekers_stale_weeks && spine.implied_seekers_stale_weeks > 0
+                ? `stale ${spine.implied_seekers_stale_weeks}w · basis ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "—"}`
+                : "demand_ratio × live listings",
+            delta: seekerDelta,
+            series: impliedSeries,
+          },
+          {
+            label: "Demand ratio",
+            value: formatRatio(spine?.demand_ratio),
+            sub: "seekers per room",
+            delta: demandDelta,
+            series: demandSeries,
+          },
+          {
+            label: "Rank in area",
+            value: spine?.rank_in_area != null ? `#${spine.rank_in_area}` : "—",
+            sub: areaRow ? `of ${areaRow.suburb_count} suburbs` : "by supply",
+            delta: rankDelta,
+            series: series((r) => r.rank_in_area),
+            expanderExtra: (
+              <div>
+                <p
+                  className="mb-2 text-[10px] uppercase tracking-[0.1em]"
+                  style={{ color: INK_60 }}
+                >
+                  All suburbs in {areaName} · w/c {formatWeekLong(selectedWeek)}
+                </p>
+                <MiniTable
+                  cols={["rank", "suburb", "listings", "avg $", "ratio"]}
+                  rows={areaPeers
+                    .slice()
+                    .sort((a, b) => (a.rank_in_area ?? 999) - (b.rank_in_area ?? 999))
+                    .map((p) => [
+                      p.rank_in_area,
+                      p.suburb,
+                      p.live_listings ?? p.total_listings,
+                      p.avg_rent == null ? null : Math.round(Number(p.avg_rent)),
+                      p.demand_ratio == null ? null : Number(p.demand_ratio).toFixed(1),
+                    ])}
+                />
+              </div>
+            ),
+          },
+        ]}
+      />
+
+      <div className="mb-8 space-y-2">
+        <p
+          className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
+          style={{ borderColor: INK_20, color: INK_60 }}
+        >
+          {g2Label}
+        </p>
+        {!identity.g1_capable && (
+          <p
+            className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
+            style={{ borderColor: INK_40, color: INK_60 }}
+          >
+            Outside the G1-capable set — no seeker, demand-ratio, average-rent or rank series
+            is collected here. Every G1 field below reads “—”; the listing-level figures are real.
+          </p>
+        )}
+        {identity.g1_capable && spine == null && (
+          <p
+            className="border px-3 py-2 text-[11px] uppercase tracking-[0.1em]"
+            style={{ borderColor: INK_40, color: INK_60 }}
+          >
+            No G1 spine row for w/c {formatWeekLong(selectedWeek)} — demand fields read “—” for
+            this week.
+          </p>
+        )}
+      </div>
+
+      {/* ── A · PRICE ─────────────────────────────────────────────── */}
+      <SectionHeading
+        letter="A"
+        title="Price — what rooms cost"
+        subtitle={`${g2Label} · filter: ${typeFilterLabel(filter)}`}
+      />
+      <TypeFilterBar
+        value={filter}
+        onChange={setFilter}
+        note="Bedrooms primary · ad tier secondary (when all beds). Property categories are count-only — see supply B8."
+      />
+      <MetricGrid>
+        <MetricCard
+          code="A1"
+          label="Typical rent (p50)"
+          value={formatCurrency(price?.p50)}
+          source="dash_suburb_price_stats_by_type.p50"
+          explain="The middle live-listing rent for the selected filter — half ask more, half less."
+          series={p50Series}
+          seriesFormat="currency"
+          showSpark={false}
+          deltas={
+            <>
+              <DeltaChip delta={rentDelta1w} />
+              <DeltaChip delta={rentDelta4w} />
+            </>
+          }
+          expanderExtra={
+            volNote ? (
+              <p style={{ color: INK_60 }}>
+                {volNote} — pending director keep/kill.
+              </p>
+            ) : null
+          }
+          span={1}
+        />
+        <MetricCard
+          code="A2"
+          label="Percentile band"
+          value={
+            price?.p10 != null && price?.p90 != null
+              ? `${formatCurrency(price.p10)} – ${formatCurrency(price.p90)}`
+              : "—"
+          }
+          source="dash_suburb_price_stats_by_type.p10…p90"
+          explain="The realistic price range across current listings, cheap end to premium end."
+          showSpark={false}
+          span={2}
+          deltas={
+            <>
+              <DeltaChip delta={bandDelta1w} />
+              <DeltaChip delta={bandDelta4w} />
+            </>
+          }
+          table={{
+            cols: ["p10", "p25", "p50", "p75", "p90"],
+            rows: [[
+              price?.p10 ?? null,
+              price?.p25 ?? null,
+              price?.p50 ?? null,
+              price?.p75 ?? null,
+              price?.p90 ?? null,
+            ]],
+          }}
+        />
+        <MetricCard
+          code="A3"
+          label="Dispersion (p90 − p10)"
+          value={formatCurrency(price?.dispersion_9010)}
+          source="dash_suburb_price_stats_by_type.dispersion_9010"
+          explain="How tight or wide pricing is. Narrow = predictable; wide = lots of positioning room."
+          showSpark={false}
+          deltas={
+            <>
+              <DeltaChip delta={dispDelta1w} />
+              <DeltaChip delta={dispDelta4w} />
+            </>
+          }
+          table={{
+            cols: ["p90−p10", "IQR p75−p25", "mean"],
+            rows: [[
+              price?.dispersion_9010 ?? null,
+              price?.iqr_7525 ?? null,
+              price?.mean_rent == null ? null : Math.round(Number(price.mean_rent)),
+            ]],
+          }}
+          caveat="Director asked −1w and −7w; shipping −1w and −4w for consistency with A1/A2 — confirm."
+        />
+      </MetricGrid>
+
+      <div className="mt-3">
+        <DashboardCard
+          title="A4 · Percentile bands over time"
+          subtitle="Stacked p20/p40/p60/p80/p100 greys · gap weeks break · hover dims other bands"
+          span={2}
+          tall
+        >
+          <PercentileBandChart weeks={percentileWeeks} gapWeeks={gapWeeks} />
+        </DashboardCard>
+      </div>
+
+      {/* ── B · SUPPLY ────────────────────────────────────────────── */}
+      <SectionHeading
+        letter="B"
+        title="Supply — how much stock"
+        subtitle={`filter: ${typeFilterLabel(filter)}`}
+      />
+      <MetricGrid>
+        <MetricCard
+          code="B7"
+          label="Supply level"
+          value={
+            supplyValue == null
+              ? "—"
+              : `${supplyValue} · area avg ${areaListingAvg == null ? "—" : areaListingAvg.toFixed(1)} (${formatSignedPct(vsBaselinePct(supplyValue, areaListingAvg))})`
+          }
+          source="dash_suburb_supply_by_type.listings · dash_suburb_weekly.live_listings"
+          explain="How many listings compete under the selected filter, against the area average."
+          series={supplySeries}
+          span={2}
+          table={{
+            cols: ["suburb", "area total", "area avg", "Sydney total"],
+            rows: [[
+              supplyValue,
+              areaRow?.total_listings ?? null,
+              areaListingAvg == null ? null : areaListingAvg.toFixed(1),
+              cityRow?.total_listings ?? null,
+            ]],
+          }}
+        />
+        <MetricCard
+          code="B9"
+          label="New-supply inflow"
+          value={
+            addedLatest
+              ? `${addedLatest.count} new @ ${formatCurrency(addedLatest.median_rent)}`
+              : "—"
+          }
+          source="dash_suburb_cohorts (cohort=added)"
+          explain="Fresh listings arriving and the prices they entered at (first observed rent)."
+          showSpark={false}
+          table={
+            addedLatest
+              ? {
+                  cols: ["n", "median", "p25", "p75"],
+                  rows: [[
+                    addedLatest.count,
+                    addedLatest.median_rent,
+                    addedLatest.p25,
+                    addedLatest.p75,
+                  ]],
+                }
+              : undefined
+          }
+        />
+      </MetricGrid>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <DashboardCard
+          title="B8 · Supply by type"
+          subtitle="listing_category counts (g2_counts) — count-only, not price-filterable"
+        >
+          {categorySupply.length === 0 ? (
+            <p className="text-[12px]" style={{ color: INK_60 }}>
+              No category supply row for this week.
+            </p>
+          ) : (
+            <MiniTable
+              cols={["type", "n", "share", "stale"]}
+              rows={categorySupply
+                .slice()
+                .sort((a, b) => b.listings - a.listings)
+                .map((r) => [
+                  LISTING_CATEGORY_LABELS[r.type_key] ?? r.type_key,
+                  r.listings,
+                  r.share_of_suburb == null
+                    ? null
+                    : `${(Number(r.share_of_suburb) * 100).toFixed(1)}%`,
+                  r.stale_weeks,
+                ])}
+            />
+          )}
+        </DashboardCard>
+        <DashboardCard
+          title="B10 · Weekly net supply"
+          subtitle="positive above axis · negative below · click a bar for the exact delta"
+        >
+          <NetSupplyChart points={netPoints} gapWeeks={gapWeeks} />
+        </DashboardCard>
+      </div>
+
+      <div className="mt-3">
+        <DashboardCard
+          title="Supply trend (weekly)"
+          subtitle="moved from section C · listings competing under the selected filter"
+        >
+          <WeeklyLineChart
+            axis={axis}
+            gapWeeks={gapWeeks}
+            series={[
+              {
+                key: "supply",
+                name: "listings",
+                values: supplySeries.map((p) => p.value),
+                emphasis: "primary",
+              },
+            ]}
+          />
+        </DashboardCard>
+      </div>
+
+      {/* ── C · DEMAND ────────────────────────────────────────────── */}
+      <SectionHeading
+        letter="C"
+        title="Demand — suburb-wide"
+        subtitle="G1 suburb-level — never split by listing type."
+      />
+      <MetricGrid>
+        <MetricCard
+          code="C12"
+          label="Demand ratio"
+          value={spine?.demand_ratio == null ? "—" : ratioBand(Number(spine.demand_ratio))}
+          source="dash_suburb_weekly.demand_ratio (band = [r−0.5, r+0.4])"
+          explain="Seekers per available room — the landlord's view of competition. Shown as a band because the source value is coarse."
+          showSpark={false}
+          span={2}
+          deltas={<DeltaChip delta={demandDelta} />}
+        />
+        <MetricCard
+          code="C11"
+          label="Implied seekers"
+          value={
+            spine?.implied_seekers == null
+              ? "—"
+              : `${spine.implied_seekers} · area avg ${areaSeekerAvg == null ? "—" : areaSeekerAvg.toFixed(1)} (${formatSignedPct(vsBaselinePct(spine.implied_seekers, areaSeekerAvg))}) · syd avg ${citySeekerAvg == null ? "—" : citySeekerAvg.toFixed(1)} (${formatSignedPct(vsBaselinePct(spine.implied_seekers, citySeekerAvg))})`
+          }
+          source="dash_suburb_weekly.implied_seekers"
+          explain="Mode-invariant seeker estimate = demand_ratio × live listings at the basis week."
+          series={impliedSeries}
+          span={2}
+          caveat={
+            spine?.implied_seekers_stale_weeks && spine.implied_seekers_stale_weeks > 0
+              ? `Basis week ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "—"} · stale ${spine.implied_seekers_stale_weeks}w`
+              : undefined
+          }
+        />
+        <MetricCard
+          code="C14"
+          label="All-time ratio change"
+          value={
+            spine?.alltime_ratio_delta == null
+              ? "—"
+              : `${formatRatio(spine.alltime_first_ratio)} → ${formatRatio(spine.alltime_latest_ratio)} (${formatSignedNumber(Number(spine.alltime_ratio_delta), 1)})`
+          }
+          source="dash_suburb_weekly.alltime_first_ratio, .alltime_latest_ratio, .alltime_ratio_delta"
+          explain="How the demand ratio has moved from the first recorded week to now."
+          series={demandSeries}
+        />
+      </MetricGrid>
+
+      <div className="mt-3">
+        <DashboardCard
+          title="C12 · Demand ratio range"
+          subtitle="forex-style high–low band [r−0.5, r+0.4] · gap weeks break"
+        >
+          <DemandRatioBandChart
+            axis={axis}
+            values={demandSeries.map((p) => p.value)}
+            gapWeeks={gapWeeks}
+          />
+        </DashboardCard>
+      </div>
+
+      {/* ── D · MOVEMENT ──────────────────────────────────────────── */}
+      <SectionHeading
+        letter="D"
+        title="Movement — liquidity"
+        subtitle={`${g2Label} · cohort panels filter: ${typeFilterLabel(filter)}`}
+      />
+
+      <DashboardCard
+        title="Weekly composition"
+        subtitle="carried old stock · repriced · new supply above · disappeared below · click a bar for detail"
+        tall
+      >
+        <CompositionChart points={compositionPoints} gapWeeks={gapWeeks} />
+      </DashboardCard>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <CohortPanel
+          title="What moved (removed)"
+          cohort={removedLatest}
+          trend={removedTrend}
+          gapWeeks={gapWeeks}
+          emptyHint="Removed cohort is empty in the live week by design — pick an earlier week."
+        />
+        <CohortPanel
+          title="What was added"
+          cohort={addedLatest}
+          trend={addedTrend}
+          gapWeeks={gapWeeks}
+          emptyHint="No added cohort for this filter / week."
+        />
+      </div>
+
+      <MetricGrid>
+        <MetricCard
+          code="D17"
+          label="Turnover — share cleared"
+          value={move?.turnover == null ? "—" : Number(move.turnover).toFixed(2)}
+          source="dash_suburb_movement.turnover (gone ÷ stock)"
+          explain="Fraction of stock that cleared this week. 0.20 ≈ a fifth turned over."
+          series={moveSeries((r) => (r.turnover == null ? null : Number(r.turnover)))}
+        />
+        <MetricCard
+          code="D21"
+          label="Reprice behaviour"
+          value={move ? `${move.reprice_up}↑ / ${move.reprice_down}↓` : "—"}
+          source="dash_suburb_movement.reprice_up, .reprice_down, .repriced_count"
+          explain="Of listings that changed price, how many rose vs fell. Mostly down = softening."
+          table={
+            move
+              ? {
+                  cols: ["repriced", "up", "down"],
+                  rows: [[move.repriced_count, move.reprice_up, move.reprice_down]],
+                }
+              : undefined
+          }
+        />
+        <MetricCard
+          code="D23"
+          label="Closing rent (achieved)"
+          value={formatCurrency(move?.closing_rent)}
+          source="dash_suburb_movement.closing_rent (0.95 × gone median)"
+          explain="Estimated what these rooms actually let for — 5% under the last ask."
+          series={moveSeries((r) => r.closing_rent)}
+          seriesFormat="currency"
+        />
+        <MetricCard
+          code="D24"
+          label="Days on market (median)"
+          value={move?.dom_median_days == null ? "—" : `${move.dom_median_days}d`}
+          source="dash_suburb_movement.dom_median_days (capped at 120)"
+          explain="Median days a live room has been on the market."
+          series={moveSeries((r) => r.dom_median_days)}
+          seriesFormat="days"
+        />
+      </MetricGrid>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <DashboardCard
+          title="D20 · Liquidity by price band"
+          subtitle={
+            topBand
+              ? `clears most at ${topBand.band_label} (${Number(topBand.pct_moved).toFixed(0)}% moved)`
+              : "standing vs moved per band"
+          }
+          tall
+        >
+          <BandLiquidityChart bands={bands} />
+        </DashboardCard>
+        <DashboardCard
+          title="Price ladder — 14 bands"
+          subtitle="live-listing distribution · legacy point-in-time snapshot"
+          tall
+        >
+          <HistogramChart bars={histogram} height={320} />
+        </DashboardCard>
+      </div>
+
+      {/* ── E · CONFIDENCE ────────────────────────────────────────── */}
+      <SectionHeading letter="E" title="Confidence & data quality" />
+      <MetricGrid>
+        <MetricCard
+          code="E25"
+          label="Confidence"
+          value={cov?.confidence ?? "RED"}
+          source="dash_suburb_coverage.confidence, sample_n, weeks_present_4, g1_capable"
+          explain="Whether this suburb has enough data to trust. RED under 3 listings · AMBER under 8, or fewer than 4 of the trailing 4 weeks present · else GREEN."
+          span={2}
+          table={{
+            cols: ["check", "value"],
+            rows: [
+              ["live listings (sample_n)", cov?.sample_n ?? null],
+              ["weeks present (28d)", cov?.weeks_present_4 ?? null],
+              ["G1 capable", cov?.g1_capable ? "yes" : "no"],
+              ["G1 present this week", cov?.g1_present ? "yes" : "no"],
+              ["G2 present this week", cov?.g2_present ? "yes" : "no"],
+            ],
+          }}
+        />
+        <MetricCard
+          code="E—"
+          label="Sample size trend"
+          value={cov?.sample_n == null ? "—" : `n=${cov.sample_n}`}
+          source="dash_suburb_price_stats.sample_n"
+          explain="Listings priced each week — the basis behind every percentile on this page."
+          series={priceSeries((r) => r.sample_n)}
+        />
+      </MetricGrid>
+
+      {/* Section F removed per ROUND2 brief. */}
+
+      {/* ── G · GEOGRAPHY ─────────────────────────────────────────── */}
+      <SectionHeading letter="G" title="Geography" />
+      <MetricGrid>
+        <MetricCard
+          code="G27"
+          label="Area & supply rank"
+          value={
+            spine?.rank_in_area == null
+              ? areaName
+              : `${areaName} · rank #${spine.rank_in_area}${areaRow ? ` of ${areaRow.suburb_count}` : ""}`
+          }
+          source="suburbs.area · dash_suburb_weekly.rank_in_area"
+          explain="Where this suburb sits within its area, ranked by supply (1 = most supply)."
+          span={2}
+          series={series((r) => r.rank_in_area)}
+        />
+        <MetricCard
+          code="G—"
+          label="Area coverage this week"
+          value={areaRow ? `${areaRow.suburb_count} suburbs captured` : "—"}
+          source="dash_area_weekly.suburb_count"
+          explain="How many suburbs in this area reported in the selected week."
+        />
+      </MetricGrid>
+
+      <div className="mt-8 border-t pt-4" style={{ borderColor: INK_20 }}>
+        <p className="mb-3 text-[10px] uppercase tracking-[0.1em]" style={{ color: INK_40 }}>
+          Week-indexed figures read the Phase-3 ISO-week tables — one row per week. Deltas are
+          strict WoW when present, else vs last observed week with the gap labelled. Section F
+          (time horizons) removed in Round 2.
+        </p>
+        <MiniTable
+          cols={["axis weeks", "weeks with data", "gap weeks", "selected", "filter"]}
+          rows={[[
+            axis.length,
+            dataWeeks.length,
+            gapWeeks.length,
+            formatWeekLong(selectedWeek),
+            typeFilterLabel(filter),
+          ]]}
+        />
+      </div>
+
+      <p className="mt-8 flex flex-wrap gap-6">
+        <Link
+          href={`/${stateSlug}/${areaSlug}`}
+          className="text-xs uppercase tracking-widest hover:underline"
+          style={{ color: INK_60 }}
+        >
+          ← Area analytics
+        </Link>
+        <Link
+          href="/"
+          className="text-xs uppercase tracking-widest hover:underline"
+          style={{ color: INK_60 }}
+        >
+          ← Back to map
+        </Link>
+      </p>
+    </DashboardShell>
+  );
+}
+
+function latestCohort(
+  rows: DashSuburbCohort[],
+  cohort: "added" | "removed",
+  selectedWeek: string,
+): DashSuburbCohort | null {
+  const matching = rows.filter((r) => r.cohort === cohort && r.iso_week <= selectedWeek);
+  return matching.sort((a, b) => (a.iso_week < b.iso_week ? 1 : -1))[0] ?? null;
+}
+
+function cohortTrend(
+  rows: DashSuburbCohort[],
+  cohort: "added" | "removed",
+  axis: string[],
+) {
+  const byWeek = new Map(
+    rows.filter((r) => r.cohort === cohort).map((r) => [r.iso_week, r]),
+  );
+  return axis.map((week) => {
+    const r = byWeek.get(week);
+    return {
+      week,
+      median: r?.median_rent ?? null,
+      p25: r?.p25 ?? null,
+      p75: r?.p75 ?? null,
+    };
+  });
+}
+
+function CohortPanel({
+  title,
+  cohort,
+  trend,
+  gapWeeks,
+  emptyHint,
+}: {
+  title: string;
+  cohort: DashSuburbCohort | null;
+  trend: { week: string; median: number | null; p25: number | null; p75: number | null }[];
+  gapWeeks: string[];
+  emptyHint: string;
+}) {
+  return (
+    <DashboardCard
+      title={title}
+      subtitle={
+        cohort
+          ? `${cohort.count} listings · median ${formatCurrency(cohort.median_rent)} · w/c ${formatWeekLong(cohort.iso_week)}`
+          : emptyHint
+      }
+      tall
+    >
+      <CohortTrendChart points={trend} gapWeeks={gapWeeks} />
+      {cohort && (
+        <div className="mt-3">
+          <MiniTable
+            cols={["n", "median", "p25", "p75", "DOM", "repriced %", "wks on mkt"]}
+            rows={[[
+              cohort.count,
+              cohort.median_rent,
+              cohort.p25,
+              cohort.p75,
+              cohort.dom_median,
+              cohort.repriced_share == null
+                ? null
+                : `${(Number(cohort.repriced_share) * 100).toFixed(0)}%`,
+              cohort.median_weeks_on_market == null
+                ? null
+                : Number(cohort.median_weeks_on_market).toFixed(1),
+            ]]}
+          />
+        </div>
+      )}
+    </DashboardCard>
+  );
+}

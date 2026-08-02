@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { INK_5, INK_20, INK_40, INK_60, INK_100 } from "@/lib/palette/v2";
 import { formatWeekLong, formatWeekTick } from "@/lib/dash/iso-week";
 import { Sparkline, SparklineLegend, type SparkPoint } from "./charts/Sparkline";
@@ -35,7 +35,13 @@ export type MetricCardProps = {
   explain: string;
   series?: SparkPoint[];
   seriesFormat?: SeriesFormat;
+  /** When false, series only appears inside the expander (Round 2 A1). Default true. */
+  showSpark?: boolean;
   table?: MetricTable;
+  /** Extra content rendered inside the open expander. */
+  expanderExtra?: ReactNode;
+  /** Compact delta chips under the value (1w / 4w). */
+  deltas?: ReactNode;
   /** Rendered above the fold when a metric is only partially available. */
   caveat?: string;
   /** Set when the block's data is older than the selected week. */
@@ -57,7 +63,10 @@ export function MetricCard({
   explain,
   series,
   seriesFormat,
+  showSpark = true,
   table,
+  expanderExtra,
+  deltas,
   caveat,
   asOfLabel,
   span = 1,
@@ -96,6 +105,8 @@ export function MetricCard({
         <div className="mt-2 text-[19px] font-semibold leading-tight tabular-nums">{value}</div>
       </button>
 
+      {deltas && <div className="mt-2 flex flex-wrap gap-2">{deltas}</div>}
+
       {caveat && (
         <p
           className="mt-2 border-l-2 pl-2 text-[10px] uppercase tracking-[0.1em]"
@@ -110,7 +121,7 @@ export function MetricCard({
         </p>
       )}
 
-      {series && series.length > 0 && (
+      {showSpark && series && series.length > 0 && (
         <>
           <Sparkline points={series} />
           <SparklineLegend points={series} />
@@ -152,6 +163,7 @@ export function MetricCard({
             </div>
           )}
           {table && <MiniTable cols={table.cols} rows={table.rows} />}
+          {expanderExtra}
         </div>
       )}
     </div>

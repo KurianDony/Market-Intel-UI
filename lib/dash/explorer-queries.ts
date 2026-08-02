@@ -8,9 +8,13 @@ import type {
   DashAreaWeekly,
   DashCityWeekly,
   DashSuburbBandLiquidity,
+  DashSuburbCohort,
   DashSuburbCoverage,
   DashSuburbMovement,
   DashSuburbPriceStats,
+  DashSuburbPriceStatsByType,
+  DashSuburbRankPeer,
+  DashSuburbSupplyByType,
   DashSuburbWeekly,
   SuburbIdentity,
 } from "@/lib/types/dash-phase3";
@@ -49,6 +53,9 @@ export type SuburbExplorerData = {
   selectedWeek: string;
   weekly: DashSuburbWeekly[];
   priceStats: DashSuburbPriceStats[];
+  priceStatsByType: DashSuburbPriceStatsByType[];
+  supplyByType: DashSuburbSupplyByType[];
+  cohorts: DashSuburbCohort[];
   movement: DashSuburbMovement[];
   coverage: DashSuburbCoverage[];
   bandLiquidity: DashSuburbBandLiquidity[];
@@ -56,6 +63,8 @@ export type SuburbExplorerData = {
   bandDefinitions: DashBandDefinition[];
   areaWeekly: DashAreaWeekly[];
   cityWeekly: DashCityWeekly[];
+  /** Area peers for the selected week — rank-in-area expander. */
+  areaPeers: DashSuburbRankPeer[];
   listingMix: DashAreaListingMixBySuburb | null;
 };
 
@@ -145,58 +154,98 @@ export async function fetchSuburbExplorerData(
   const identity = await resolveSuburbIdentity(supabase, stateSlug, areaSlug, suburbSlug);
   if (!identity) return null;
 
-  const [weeklyRes, priceRes, moveRes, covRes, bandRes, histRes, areaRes, cityRes, mixRes, bands] =
-    await Promise.all([
-      supabase
-        .from("dash_suburb_weekly")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("iso_week", { ascending: true }),
-      supabase
-        .from("dash_suburb_price_stats")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("iso_week", { ascending: true }),
-      supabase
-        .from("dash_suburb_movement")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("iso_week", { ascending: true }),
-      supabase
-        .from("dash_suburb_coverage")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("iso_week", { ascending: true }),
-      supabase
-        .from("dash_suburb_band_liquidity")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("iso_week", { ascending: true })
-        .order("band_ord", { ascending: true }),
-      supabase
-        .from("dash_suburb_listing_histogram")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("snapshot_date", { ascending: false })
-        .order("band_ord", { ascending: true })
-        .limit(14),
-      supabase
-        .from("dash_area_weekly")
-        .select("*")
-        .eq("area_slug", areaSlug)
-        .order("iso_week", { ascending: true }),
-      supabase.from("dash_city_weekly").select("*").order("iso_week", { ascending: true }),
-      supabase
-        .from("dash_area_listing_mix_by_suburb")
-        .select("*")
-        .eq("suburb_id", identity.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      fetchBandDefinitions(supabase),
-    ]);
+  const [
+    weeklyRes,
+    priceRes,
+    priceByTypeRes,
+    supplyByTypeRes,
+    cohortRes,
+    moveRes,
+    covRes,
+    bandRes,
+    histRes,
+    areaRes,
+    cityRes,
+    mixRes,
+    bands,
+  ] = await Promise.all([
+    supabase
+      .from("dash_suburb_weekly")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_price_stats")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_price_stats_by_type")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_supply_by_type")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_cohorts")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_movement")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_coverage")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_band_liquidity")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true })
+      .order("band_ord", { ascending: true }),
+    supabase
+      .from("dash_suburb_listing_histogram")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("snapshot_date", { ascending: false })
+      .order("band_ord", { ascending: true })
+      .limit(14),
+    supabase
+      .from("dash_area_weekly")
+      .select("*")
+      .eq("area_slug", areaSlug)
+      .order("iso_week", { ascending: true }),
+    supabase.from("dash_city_weekly").select("*").order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_area_listing_mix_by_suburb")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("snapshot_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    fetchBandDefinitions(supabase),
+  ]);
 
-  for (const res of [weeklyRes, priceRes, moveRes, covRes, bandRes, histRes, areaRes, cityRes]) {
+  for (const res of [
+    weeklyRes,
+    priceRes,
+    priceByTypeRes,
+    supplyByTypeRes,
+    cohortRes,
+    moveRes,
+    covRes,
+    bandRes,
+    histRes,
+    areaRes,
+    cityRes,
+  ]) {
     if (res.error) throw res.error;
   }
   if (mixRes.error) throw mixRes.error;
@@ -222,7 +271,18 @@ export async function fetchSuburbExplorerData(
   }
 
   const axis = buildWeekAxis(dataWeeks);
+  const selectedWeek = pickWeek(dataWeeks, requestedWeek);
   const areaWeekly = (areaRes.data ?? []) as DashAreaWeekly[];
+
+  const { data: peerData, error: peerErr } = await supabase
+    .from("dash_suburb_weekly")
+    .select(
+      "suburb_id, suburb, suburb_slug, rank_in_area, live_listings, total_listings, avg_rent, demand_ratio",
+    )
+    .eq("area_slug", areaSlug)
+    .eq("iso_week", selectedWeek)
+    .order("rank_in_area", { ascending: true });
+  if (peerErr) throw peerErr;
 
   return {
     kind: "market-data",
@@ -231,9 +291,12 @@ export async function fetchSuburbExplorerData(
     axis,
     gapWeeks: findGapWeeks(dataWeeks),
     dataWeeks,
-    selectedWeek: pickWeek(dataWeeks, requestedWeek),
+    selectedWeek,
     weekly,
     priceStats,
+    priceStatsByType: (priceByTypeRes.data ?? []) as DashSuburbPriceStatsByType[],
+    supplyByType: (supplyByTypeRes.data ?? []) as DashSuburbSupplyByType[],
+    cohorts: (cohortRes.data ?? []) as DashSuburbCohort[],
     movement,
     coverage,
     bandLiquidity: (bandRes.data ?? []) as DashSuburbBandLiquidity[],
@@ -241,6 +304,7 @@ export async function fetchSuburbExplorerData(
     bandDefinitions: bands,
     areaWeekly,
     cityWeekly: (cityRes.data ?? []) as DashCityWeekly[],
+    areaPeers: (peerData ?? []) as DashSuburbRankPeer[],
     listingMix: (mixRes.data as DashAreaListingMixBySuburb | null) ?? null,
   };
 }

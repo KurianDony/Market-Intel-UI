@@ -87,3 +87,5 @@
 | 2026-08-01 19:40 | P4 | Suburb Explorer + Area Analytics rebuilt on the Phase-3 ISO-week tables (32/23 metric cards, week nav, gap-aware trends, confidence + coverage badges, vs-Sydney strip, leaderboard WoW). QA gate green: data harness ALL CHECKS PASSED, Playwright pass clean at 1440/390, verify + tsc + lint clean. |
 | 2026-08-01 19:55 | release | Merged `dev` → `main` (`80f8ff0`) — Phase-4 analytics UI live on marketmeerkat.guru (`dpl_8guBBaze…`, READY). Prod re-verified with the screens harness: 8/8 URLs clean at 1440/390. PHASE4_REPORT.md written. |
 | 2026-08-01 20:50 | P4 followup | Scoped shell exception: DashboardShell header stacks on phone (brand / Dashboard · G3 / Snapshot) with each label kept whole — fixes the `DASHBOARDSNAPSHOT` collision at 390px. Desktop row layout unchanged from `sm` up. verify + tsc + lint clean; screens harness clean. |
+
+| 2026-08-02 13:02 | R2 | Suburb Explorer Round 2 rework (bedroom+tier filter, expanders, composition/cohorts, C demand, F removed). QA green at 1440/390; verify clean. |
