@@ -1,4 +1,4 @@
-# G3 Data Contract v2 — Suburb Explorer + Area Analytics (for Phase 4 UI)
+# G3 Data Contract v3 — Suburb Explorer + Area Analytics (for Phase 4 UI)
 
 Self-contained reference for a frontend dev building the dashboard. Every table
 the UI reads, its columns/types/keys/grain, and an example query per page
@@ -6,15 +6,22 @@ section. All tables are in the **Market-Intel** Supabase project
 (`lyurcephjxokyhiclmgm`), schema `public`, **RLS on with a public SELECT policy**
 (anon key can read all of them). Nothing here is written by the UI — read only.
 
-> **v2 (2026-08-02, Round 1).** Three things changed in ways the UI must handle.
-> 1. **Deltas are strict.** `wow_/mom_/qoq_` are NULL unless the exact prior week
->    exists. Read §0.1 before rendering any "vs last week" figure.
-> 2. **Seeker counts are gone.** `seekers`, `rooms_offered`, `wow_seekers`,
->    `listings_per_seeker`, `total_seekers`, `total_rooms` are now always NULL.
->    Use `implied_seekers`. Read §0.2 — this is a correctness fix, not a rename.
-> 3. **Three new tables**: `dash_suburb_price_stats_by_type`,
->    `dash_suburb_supply_by_type`, `dash_suburb_cohorts`. The type-filter list the
->    UI can actually offer is in §7 — it is not the list you would guess.
+> **v3 (2026-08-02, Round 3A).** Bed × tier cross grain so filters combine
+> (e.g. 2-bed premium) page-wide, including the top banner.
+> 1. **Three `_x` tables**: `dash_suburb_price_stats_x`, `dash_suburb_supply_x`,
+>    `dash_suburb_cohorts_x` at grain `suburb × iso_week × bed_bucket × tier`.
+>    `bed_bucket` ∈ `{1,2,3,4,5,6plus,all}`; `tier` ∈ `{premium,basic,all}`.
+>    Bedrooms ≥ 6 always bucket to `6plus` (also aligned on the `_by_type` tables).
+> 2. **Banner under filter** — when a bed and/or tier is selected, banner numbers
+>    come from the matching `_x` segment. See §0.3. Rank and demand ratio stay
+>    suburb-wide and must be tagged.
+> 3. **`dash_suburb_movement.carried_count`** = `stock − new_count − repriced_count`
+>    so the composition strip needs no client arithmetic.
+> 4. **`_by_type` tables are superseded** for combined filters but stay populated
+>    for Round 2 UI. ROUND3B migrates the reads.
+>
+> **v2 (2026-08-02, Round 1)** still applies: strict deltas (§0.1), implied
+> seekers (§0.2), and the single-dimension `_by_type` / cohorts grains.
 >
 > Nothing was dropped. Deprecated columns still exist and still return rows; they
 > just return NULL.
@@ -116,6 +123,46 @@ to imply from, and inventing one would repeat the original mistake.
 **All-time demand change** is likewise ratio-based now: `alltime_first_ratio`,
 `alltime_latest_ratio`, `alltime_ratio_delta` (read them off the latest row).
 
+### 0.3 Banner under filter (v3)
+
+When the director selects a bedroom and/or ad-tier filter, every banner figure
+that *can* be segment-specific must come from the matching
+`dash_suburb_*_x` row (`bed_bucket`, `tier`). Rollups use `'all'`:
+
+| Banner figure | Source under filter | Label |
+|---|---|---|
+| Typical rent (p50) | `dash_suburb_price_stats_x.p50` for the segment | **listings-basis** |
+| Supply (live) | `dash_suburb_supply_x.live_count` for the segment | — |
+| Implied seekers | `dash_suburb_weekly.demand_ratio × supply_x.live_count` (round) | **estimate** |
+| Demand ratio | `dash_suburb_weekly.demand_ratio` | suburb-wide — **tag it** |
+| Rank in area | `dash_suburb_weekly.rank_in_area` | suburb-wide — **tag it** |
+
+Composition strip (new / gone / reprice up / reprice down / carried) reads
+`dash_suburb_movement` suburb-wide (`carried_count` is precomputed). Segment
+new/gone live on `dash_suburb_supply_x`; segment cohort profiles on
+`dash_suburb_cohorts_x`.
+
+```ts
+const bed = selectedBed ?? "all";   // "1"|"2"|...|"6plus"|"all"
+const tier = selectedTier ?? "all"; // "premium"|"basic"|"all"
+const px = await priceStatsX({ suburb_id, iso_week, bed_bucket: bed, tier });
+const sx = await supplyX({ suburb_id, iso_week, bed_bucket: bed, tier });
+const w  = await suburbWeekly({ suburb_id, iso_week });
+showTypicalRent(px.p50, { basis: "listings-basis" });
+showSupply(sx.live_count);
+showImpliedSeekers(
+  w.demand_ratio == null || sx.live_count == null
+    ? null
+    : Math.round(Number(w.demand_ratio) * sx.live_count),
+  { label: "estimate" },
+);
+showDemandRatio(w.demand_ratio, { scope: "suburb-wide" });
+showRank(w.rank_in_area, { scope: "suburb-wide" });
+```
+
+**6plus rule.** Any listing with `bedrooms >= 6` lands in `bed_bucket='6plus'`.
+There is no bare `"6"` key on `_x` or on `_by_type` bedrooms rows.
+
 ## 1. Table catalogue
 
 ### Phase-3 tables (ISO-week keyed)
@@ -124,10 +171,13 @@ to imply from, and inventing one would repeat the original mistake.
 |---|---|---|
 | `dash_suburb_weekly` | (suburb_id, iso_week) | Rent/demand/supply spine + strict WoW/MoM/QoQ + prev-obs companions, implied seekers, all-time deltas, 8-wk volatility, in-area rank |
 | `dash_suburb_price_stats` | (suburb_id, iso_week) | Live-rent percentiles p10/p25/p50/p75/p90, dispersion, IQR, mean, bills premium |
-| `dash_suburb_price_stats_by_type` | (suburb_id, iso_week, type_dim, type_key) | **v2** The same percentiles split by listing type |
-| `dash_suburb_supply_by_type` | (suburb_id, iso_week, type_dim, type_key) | **v2** Listing counts split by listing type, incl. the count-only Flatmates categories |
-| `dash_suburb_cohorts` | (suburb_id, iso_week, cohort, type_dim, type_key) | **v2** What was added / what was removed, with its own price distribution |
-| `dash_suburb_movement` | (suburb_id, iso_week) | new/gone/repriced/net stock flow, reprice up/down, turnover, DOM, weeks-on-market, closing rent |
+| `dash_suburb_price_stats_x` | (suburb_id, iso_week, bed_bucket, tier) | **v3** Same percentiles at bed × tier cross grain — prefer this for combined filters |
+| `dash_suburb_price_stats_by_type` | (suburb_id, iso_week, type_dim, type_key) | **v2, superseded by `_x` for combined filters** — still populated for Round 2 |
+| `dash_suburb_supply_x` | (suburb_id, iso_week, bed_bucket, tier) | **v3** live/new/gone counts at bed × tier |
+| `dash_suburb_supply_by_type` | (suburb_id, iso_week, type_dim, type_key) | **v2, superseded by `_x` for bed/tier** — still the only source for `listing_category` |
+| `dash_suburb_cohorts_x` | (suburb_id, iso_week, cohort, bed_bucket, tier) | **v3** Added/removed cohort profiles at bed × tier |
+| `dash_suburb_cohorts` | (suburb_id, iso_week, cohort, type_dim, type_key) | **v2, superseded by `_x` for combined filters** — still populated for Round 2 |
+| `dash_suburb_movement` | (suburb_id, iso_week) | new/gone/repriced/net stock flow, reprice up/down, **carried_count (v3)**, turnover, DOM, weeks-on-market, closing rent |
 | `dash_suburb_band_liquidity` | (suburb_id, iso_week, band_ord) | Per price band: standing vs moved, pct_moved |
 | `dash_suburb_coverage` | (suburb_id, iso_week) | g1_capable, g1/g2 presence, sample_n, weeks_present_4, confidence badge |
 | `dash_area_weekly` | (area_slug, iso_week) | Area rollup + strict deltas + prev-obs companions + implied seekers + volatility |
@@ -182,40 +232,52 @@ g1 histogram), `demand_ratio numeric`, `total_listings int` (g2 carry-forward),
 (median bills-incl − median not; **latest iso_week only**, null elsewhere),
 `computed_at`.
 
-**dash_suburb_price_stats_by_type** *(v2)* — `suburb_id`, `suburb_slug`,
-`area_slug`, `iso_week`, `type_dim text`, `type_key text`, `sample_n int`,
-`p10 p25 p50 p75 p90 int`, `mean_rent numeric`, `dispersion_9010 int`,
-`iqr_7525 int`, `computed_at`. `type_dim` ∈ `all | bedrooms | tile_kind`; the
-`('all','all')` row is identical to `dash_suburb_price_stats` for the same
-suburb-week. See §7 for what these dimensions actually mean.
+**dash_suburb_price_stats_by_type** *(v2, superseded by `_x` for combined filters)* —
+`suburb_id`, `suburb_slug`, `area_slug`, `iso_week`, `type_dim text`, `type_key text`,
+`sample_n int`, `p10 p25 p50 p75 p90 int`, `mean_rent numeric`, `dispersion_9010 int`,
+`iqr_7525 int`, `computed_at`. `type_dim` ∈ `all | bedrooms | tile_kind`; bedrooms
+`type_key` ∈ `1|2|3|4|5|6plus` (bedrooms ≥ 6 → `6plus`). The `('all','all')` row is
+identical to `dash_suburb_price_stats`. Still populated for Round 2 UI.
 
-**dash_suburb_supply_by_type** *(v2)* — `suburb_id`, `suburb_slug`, `area_slug`,
-`iso_week`, `type_dim text`, `type_key text`, `listings int`,
+**dash_suburb_price_stats_x** *(v3)* — `suburb_id`, `suburb_slug`, `area_slug`,
+`iso_week`, `bed_bucket text`, `tier text`, `sample_n int`, `p10 p25 p50 p75 p90 int`,
+`mean_rent numeric`, `computed_at`. `bed_bucket` ∈ `1|2|3|4|5|6plus|all`;
+`tier` ∈ `premium|basic|all`. The `(all, all)` row matches `dash_suburb_price_stats`
+row-for-row. Prefer this whenever bed and tier may both be set (§0.3).
+
+**dash_suburb_supply_by_type** *(v2, superseded by `_x` for bed/tier)* — `suburb_id`,
+`suburb_slug`, `area_slug`, `iso_week`, `type_dim text`, `type_key text`, `listings int`,
 `share_of_suburb numeric` (of that suburb-week's total for the same `type_dim`),
 `source text` (`g2_listings` | `g2_counts`), `basis_week date`, `stale_weeks int`,
 `computed_at`. `type_dim` ∈ `all | bedrooms | tile_kind | listing_category`.
-Rows with `source='g2_counts'` are count-only and may be carried forward —
-check `stale_weeks`.
+`listing_category` remains count-only and is **not** on `_x` — keep reading it here.
+Rows with `source='g2_counts'` may be carried forward — check `stale_weeks`.
 
-**dash_suburb_cohorts** *(v2)* — `suburb_id`, `suburb_slug`, `area_slug`,
-`iso_week`, `cohort text` (`added` | `removed`), `type_dim text`, `type_key text`,
-`count int`, `median_rent int`, `p25 int`, `p75 int`, `dom_median int`
-(**removed cohort only**; median days activated_at→last_seen, capped 120),
-`repriced_share numeric` (share of the cohort whose rent changed at least once),
-`median_weeks_on_market numeric`, `computed_at`.
-`added` is priced at each listing's **first** observed rent, `removed` at its
-**last** — so the two answer "what came on, at what price" and "what left, at
-what price". `count` at `type_dim='all'` reconciles exactly with
-`dash_suburb_movement.new_count` / `.gone_count`.
+**dash_suburb_supply_x** *(v3)* — `suburb_id`, `suburb_slug`, `area_slug`, `iso_week`,
+`bed_bucket text`, `tier text`, `live_count int`, `new_count int`, `gone_count int`,
+`computed_at`. `(all, all)` matches `dash_suburb_movement.stock / new_count / gone_count`.
+
+**dash_suburb_cohorts** *(v2, superseded by `_x` for combined filters)* — `suburb_id`,
+`suburb_slug`, `area_slug`, `iso_week`, `cohort text` (`added` | `removed`),
+`type_dim text`, `type_key text`, `count int`, `median_rent int`, `p25 int`, `p75 int`,
+`dom_median int` (**removed cohort only**), `repriced_share numeric`,
+`median_weeks_on_market numeric`, `computed_at`. Still populated for Round 2 UI.
+`count` at `type_dim='all'` reconciles with `dash_suburb_movement.new_count` /
+`.gone_count`.
+
+**dash_suburb_cohorts_x** *(v3)* — same metrics as `dash_suburb_cohorts` but keyed by
+`bed_bucket` × `tier` instead of `(type_dim, type_key)`. `(all, all)` matches the
+`type_dim='all'` cohort row.
 
 **dash_suburb_movement** — `suburb_id`, `suburb_slug`, `area_slug`, `iso_week`,
 `stock int` (live that week), `new_count int` (first_seen in week), `gone_count int`
 (last_seen in week & not the current week), `repriced_count int`, `net_flow int`
-(new−gone), `reprice_up int`, `reprice_down int`, `new_median_rent int`,
-`gone_median_rent int`, `turnover numeric` (gone/stock), `dom_median_days int`
-(median days-on-market of live, capped 120), `weeks_on_market_median numeric`
-(median (last_seen−first_seen)/7 of gone), `closing_rent int` (0.95×gone median),
-`computed_at`.
+(new−gone), `reprice_up int`, `reprice_down int`,
+`carried_count int` (**v3**: `stock − new_count − repriced_count`),
+`new_median_rent int`, `gone_median_rent int`, `turnover numeric` (gone/stock),
+`dom_median_days int` (median days-on-market of live, capped 120),
+`weeks_on_market_median numeric` (median (last_seen−first_seen)/7 of gone),
+`closing_rent int` (0.95×gone median), `computed_at`.
 
 **dash_suburb_band_liquidity** — `suburb_id`, `suburb_slug`, `area_slug`,
 `iso_week`, `band_ord int` (1..14, FK dash_band_definitions), `band_label text`,
@@ -259,35 +321,35 @@ Sections A–G per the approved `suburb_explorer_2026-07-01.html`.
 
 | # | UI element (section) | Source table.column |
 |---|---|---|
-| A1 | Typical rent p50 | `dash_suburb_price_stats.p50` |
-| A2 | Percentile band p10/p50/p90 | `dash_suburb_price_stats.p10,p50,p90` |
-| A3 | Dispersion (p90−p10) | `dash_suburb_price_stats.dispersion_9010` |
-| A4 | Price trend (weekly) | `dash_suburb_weekly.avg_rent` series + `dash_suburb_price_stats.p50` series (order by iso_week) |
+| A1 | Typical rent p50 | Unfiltered: `dash_suburb_price_stats.p50`. **Under filter (v3):** `dash_suburb_price_stats_x.p50` — label **listings-basis** |
+| A2 | Percentile band p10/p50/p90 | Unfiltered: `dash_suburb_price_stats`. **Under filter:** `dash_suburb_price_stats_x` |
+| A3 | Dispersion (p90−p10) | Unfiltered: `dash_suburb_price_stats.dispersion_9010`. Under filter: `p90−p10` from `_x` |
+| A4 | Price trend (weekly) | `dash_suburb_weekly.avg_rent` series + price_stats / `_x` p50 series |
 | A5 | All-time price change | `dash_suburb_weekly.alltime_avg_rent_delta` (latest row) |
-| A6 | Bills-included premium | `dash_suburb_price_stats.bills_incl_premium` (latest iso_week) |
-| B7 | Supply level (+ area avg) | `dash_suburb_weekly.live_listings` / `.total_listings`; area ctx `dash_area_weekly.total_listings`, `dash_city_weekly.total_listings` |
-| B8 | Share of supply (by type) | **v2** `dash_suburb_supply_by_type.listings, .share_of_suburb` (legacy `dash_area_listing_mix_by_suburb` still available) |
-| B9 | New-supply inflow + price | `dash_suburb_movement.new_count`, `.new_median_rent` |
+| A6 | Bills-included premium | `dash_suburb_price_stats.bills_incl_premium` (latest iso_week; suburb-wide) |
+| B7 | Supply level (+ area avg) | Unfiltered: `dash_suburb_weekly.live_listings`. **Under filter (v3):** `dash_suburb_supply_x.live_count` |
+| B8 | Share of supply (by type) | `dash_suburb_supply_by_type` for `listing_category`; bed/tier from `dash_suburb_supply_x` |
+| B9 | New-supply inflow + price | `dash_suburb_movement.new_count`, `.new_median_rent`; segment new: `supply_x.new_count` |
 | B10 | All-time supply change | first vs latest `dash_suburb_weekly.live_listings` (order by iso_week) |
-| C11 | Seekers (+area/Sydney) | **v2** `dash_suburb_weekly.implied_seekers` (+ `.implied_seekers_stale_weeks` badge); area `dash_area_weekly.total_implied_seekers`; city `dash_city_weekly.total_implied_seekers` |
-| C12 | G1 demand ratio (band) | `dash_suburb_weekly.demand_ratio` (band = [r−0.5, r+0.4] computed client-side) |
-| C13 | Listings per seeker | **v2 REMOVED** — `listings_per_seeker` is NULL. Show `demand_ratio` (C12) instead; it is the mode-invariant equivalent |
-| C14 | All-time demand change | **v2** `dash_suburb_weekly.alltime_first_ratio`, `.alltime_latest_ratio`, `.alltime_ratio_delta` (latest row) |
-| D15 | Weekly movement new/gone/repriced/net/stock | `dash_suburb_movement.new_count,gone_count,repriced_count,net_flow,stock` |
-| D16 | Flow (new/rented/standing) | `dash_suburb_movement.new_count` (new), `.gone_count` (rented≈gone), `.stock` (standing) |
+| C11 | Seekers (+area/Sydney) | Unfiltered: `dash_suburb_weekly.implied_seekers`. **Under filter (v3):** `round(demand_ratio × supply_x.live_count)` labeled **estimate** |
+| C12 | G1 demand ratio (band) | `dash_suburb_weekly.demand_ratio` — **always suburb-wide; tag when a filter is on** |
+| C13 | Listings per seeker | **v2 REMOVED** — show `demand_ratio` (C12) instead |
+| C14 | All-time demand change | `dash_suburb_weekly.alltime_first_ratio`, `.alltime_latest_ratio`, `.alltime_ratio_delta` |
+| D15 | Weekly movement new/gone/repriced/net/stock/carried | `dash_suburb_movement` (+ `.carried_count` v3). Segment new/gone: `supply_x` |
+| D16 | Flow (new/rented/standing) | `new_count`, `gone_count`, `stock` (standing ≈ `carried_count` + repriced under composition) |
 | D17 | Turnover — share cleared | `dash_suburb_movement.turnover` |
-| D18 | Cohort profiles (what rents) | **v2 now full** — `dash_suburb_cohorts` (count, median_rent, p25, p75 per cohort per type) |
-| D19 | Weeks on market | `dash_suburb_movement.weeks_on_market_median` (per cohort: `dash_suburb_cohorts.median_weeks_on_market`) |
+| D18 | Cohort profiles (what rents) | Prefer `dash_suburb_cohorts_x`; `_by_type` cohorts kept for Round 2 |
+| D19 | Weeks on market | `dash_suburb_movement.weeks_on_market_median` / `cohorts_x.median_weeks_on_market` |
 | D20 | Liquidity by price band | `dash_suburb_band_liquidity` (standing, moved, pct_moved per band_ord) |
-| D21 | Reprice behaviour | `dash_suburb_movement.reprice_up,reprice_down,repriced_count` |
-| D22 | Reprice on disappeared (cuts) | **v2 now full** — `dash_suburb_cohorts.repriced_share` where `cohort='removed'` |
+| D21 | Reprice behaviour | `dash_suburb_movement.reprice_up,reprice_down,repriced_count,carried_count` |
+| D22 | Reprice on disappeared (cuts) | `dash_suburb_cohorts_x.repriced_share` where `cohort='removed'` |
 | D23 | Closing rent (achieved) | `dash_suburb_movement.closing_rent` |
-| D24 | Days on market (median) | `dash_suburb_movement.dom_median_days` (per cohort: `dash_suburb_cohorts.dom_median`) |
+| D24 | Days on market (median) | `dash_suburb_movement.dom_median_days` / `cohorts_x.dom_median` |
 | E25 | Confidence + checks | `dash_suburb_coverage.confidence,sample_n,weeks_present_4,g1_capable` |
-| F26 | Time horizons (1M/2M/3M) | `dash_suburb_weekly.mom_avg_rent` (~1M), `.qoq_avg_rent` (~3M) — **both strict, see §0.1**; weekly series for the spark. 2M not persisted (§6) |
-| G27 | Area & supply rank | `suburbs.area` + `dash_suburb_weekly.rank_in_area` (or `dash_area_leaderboard.rank_in_area`) |
-| **NEW** | Price by listing type | `dash_suburb_price_stats_by_type` — see §7 for the supportable filter list |
-| **NEW** | Movement panels ("what was added" / "what moved") | `dash_suburb_cohorts` split by `cohort` |
+| F26 | Time horizons (1M/2M/3M) | `mom_avg_rent` / `qoq_avg_rent` — **strict, see §0.1**; 2M not persisted (§6) |
+| G27 | Area & supply rank | `dash_suburb_weekly.rank_in_area` — **always suburb-wide; tag when a filter is on** |
+| **NEW** | Price by bed × tier | `dash_suburb_price_stats_x` — see §0.3 / §7 |
+| **NEW** | Movement panels ("what was added" / "what moved") | `dash_suburb_cohorts_x` split by `cohort` |
 
 ## 4. Example queries — per Suburb Explorer section
 
@@ -320,7 +382,18 @@ where suburb_id = 1
 order by iso_week;
 ```
 
-**Price by listing type (new):**
+**Price by bed × tier (v3 — prefer this):**
+```sql
+select bed_bucket, tier, sample_n, p25, p50, p75
+from dash_suburb_price_stats_x
+where suburb_id = 1
+  and iso_week = (select max(iso_week) from dash_suburb_price_stats_x where suburb_id = 1)
+  and bed_bucket = '2'          -- or 'all'
+  and tier in ('all','premium','basic')
+order by tier;
+```
+
+**Price by listing type (v2 single-dim, still populated):**
 ```sql
 select type_dim, type_key, sample_n, p25, p50, p75
 from dash_suburb_price_stats_by_type
@@ -339,15 +412,33 @@ where suburb_id = 1
 order by type_dim, type_key;
 ```
 
-**Movement panels — what was added / what moved (new, D18/D22):**
+**Supply / movement at bed × tier (v3):**
 ```sql
-select cohort, type_key, count, median_rent, p25, p75,
-       dom_median, repriced_share, median_weeks_on_market
-from dash_suburb_cohorts
+select bed_bucket, tier, live_count, new_count, gone_count
+from dash_suburb_supply_x
 where suburb_id = 1
-  and iso_week = (select max(iso_week) from dash_suburb_cohorts where suburb_id = 1)
-  and type_dim = 'all'
+  and iso_week = (select max(iso_week) from dash_suburb_supply_x where suburb_id = 1)
+  and bed_bucket = '2' and tier = 'premium';
+```
+
+**Movement panels — what was added / what moved (v3):**
+```sql
+select cohort, bed_bucket, tier, count, median_rent, p25, p75,
+       dom_median, repriced_share, median_weeks_on_market
+from dash_suburb_cohorts_x
+where suburb_id = 1
+  and iso_week = (select max(iso_week) from dash_suburb_cohorts_x where suburb_id = 1)
+  and bed_bucket = 'all' and tier = 'all'
 order by cohort;
+```
+
+**Composition strip (v3 carried_count):**
+```sql
+select stock, new_count, gone_count, repriced_count,
+       reprice_up, reprice_down, carried_count, net_flow
+from dash_suburb_movement
+where suburb_id = 1
+order by iso_week desc limit 1;
 ```
 
 **Price ladder / histogram (14 bands):**
@@ -451,43 +542,44 @@ order by coverage_pct desc;
 The UI filter list is **not** the list of Flatmates property categories. Here is
 what the data actually supports, and why.
 
-| `type_dim` | `type_key` values | Supports supply counts | Supports prices | Source |
-|---|---|---|---|---|
-| `all` | `all` | yes | yes | live G2 listings |
-| `bedrooms` | `1` `2` `3` `4` `5` `6` | yes | **yes** | live G2 listings (`bedrooms` on every listing) |
-| `tile_kind` | `premium` `basic` | yes | **yes** | live G2 listings |
-| `listing_category` | `share_houses` `granny_flats` `studios` `one_beds` `whole_properties` `student_accommodation` `homestays` | yes | **no** | `g2_counts` aggregate |
+| Dimension | Keys | Supports supply | Supports prices | Combined with the other? | Source |
+|---|---|---|---|---|---|
+| bed_bucket | `1` `2` `3` `4` `5` `6plus` `all` | yes (`supply_x`) | **yes** (`price_stats_x`) | **yes — this is the point of `_x`** | live G2 listings |
+| tier (ad tier) | `premium` `basic` `all` | yes (`supply_x`) | **yes** (`price_stats_x`) | **yes** | live G2 (`tile_kind`) |
+| listing_category | seven Flatmates categories | yes (`supply_by_type`) | **no** | no | `g2_counts` aggregate |
 
-Two things to be careful about:
+**Prefer `dash_suburb_*_x` whenever bed and/or tier may both be set.** The
+single-dimension `_by_type` tables stay populated (Round 2 UI) but cannot answer
+"2-bed premium" without disabling one facet — that is why they are marked
+superseded-by `_x` for combined filters. ROUND3B migrates the reads.
 
-**`tile_kind` is an ad tier, not a property type.** Across all 31,183 history
-rows it takes exactly two values, `premium` and `basic`, which is Flatmates'
-listing-promotion level. It is genuinely useful — premium listings in Strathfield
-run a median $295 against $355 for basic — but do not label it "property type" in
-the UI.
+**6plus rule.** `bedrooms >= 6` always maps to `bed_bucket='6plus'` (and to
+`type_key='6plus'` on `_by_type` bedrooms rows). There is no bare `"6"` key.
+Today the raw field only contains 1–6, so `6plus` equals the old `"6"` bucket;
+the rename is forward-compatible if larger houses appear.
+
+**`tier` is an ad tier, not a property type.** Across history it takes exactly
+two values, `premium` and `basic` (Flatmates listing-promotion level). Useful —
+premium in Strathfield runs a median $295 against $355 for basic — but do not
+label it "property type" in the UI.
 
 **Whole properties, granny flats, studios, student accommodation and homestays
-are count-only.** These seven categories exist solely as per-suburb-week integers
-on `g2_counts`; the per-listing scrape does not carry a category field, so there
-are no individual rents to take percentiles of. `dash_suburb_supply_by_type`
-serves them with `source='g2_counts'`, and `dash_suburb_price_stats_by_type` will
-never have a `listing_category` row. A "filter by whole property" control can
-therefore change a supply chart but cannot change a price chart. If price-by-
-category is wanted, it needs a G2 fetcher change to capture the category per
-listing — a Round-2+ scope item, not a data-layer fix.
-
-`bedrooms` is complete: all 31,183 history rows carry a value in 1–6, so no
-`unknown` bucket appears in practice (the pipeline would emit one if a null ever
-arrived).
+are count-only.** They exist solely as per-suburb-week integers on `g2_counts`,
+so they appear only on `dash_suburb_supply_by_type` with `source='g2_counts'`
+and never on `_x` or on any price table. A "filter by whole property" control
+can change a supply chart but cannot change a price chart.
 
 ## 8. Rebuild, audit, and freshness
 
 - **Rebuild:** `.venv/bin/python scripts/run_g3.py` (see `docs/runbook.md`).
   Truncate-and-rebuild, idempotent — `--check` proves it by hashing twice.
-- **Audit:** `.venv/bin/python scripts/audit_g3.py` runs 32 invariants
+  `run_g3` prefers the Management API for `g3_rebuild_phase3()` when
+  `SUPABASE_ACCESS_TOKEN` is set (PostgREST's 30s client timeout is too tight
+  for the cross-grain rebuild).
+- **Audit:** `.venv/bin/python scripts/audit_g3.py` runs 43 invariants
   (structure, strict deltas, demand model, type reconciliation, cohort
-  reconciliation) and exits non-zero if any is violated. Run it after every
-  rebuild; a green audit is the contract's guarantee that the rules in §0.1 and
-  §0.2 actually hold in the data.
+  reconciliation, **cross-grain ROUND3A checks**) and exits non-zero if any is
+  violated. Run it after every rebuild; a green audit is the contract's
+  guarantee that §0.1, §0.2 and §0.3 hold in the data.
 - **Freshness:** every date-keyed `dash_*` table should report the current ISO
   week. Query in `docs/runbook.md`.
