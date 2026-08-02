@@ -61,4 +61,10 @@ Also: `npx tsc --noEmit` clean, `npm run verify` (prod build) clean.
 
 ## Deploy
 
-`dev` → `main` after green QA. Production READY on marketmeerkat.guru after push to `origin/main`.
+`dev` → `main` after green QA (`01fcf68`). Production READY:
+
+- Commit: `01fcf68`
+- Deployment: `dpl_AUr4x8mrQVcThNfFm7oyNkCrsS1q` (Production)
+- URL: https://marketmeerkat.guru
+- Inspector: https://vercel.com/kuriandonyku-2996s-projects/market-intel-ui/AUr4x8mrQVcThNfFm7oyNkCrsS1q
+- Prod re-verify: `scripts/round5-screens.mjs https://marketmeerkat.guru` — PASS at 1440/390 (suburb + area liquidity basis `2026-06-29`, leaderboard gone_counts match)
