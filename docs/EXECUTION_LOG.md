@@ -89,3 +89,4 @@
 | 2026-08-01 20:50 | P4 followup | Scoped shell exception: DashboardShell header stacks on phone (brand / Dashboard · G3 / Snapshot) with each label kept whole — fixes the `DASHBOARDSNAPSHOT` collision at 390px. Desktop row layout unchanged from `sm` up. verify + tsc + lint clean; screens harness clean. |
 
 | 2026-08-02 13:02 | R2 | Suburb Explorer Round 2 rework (bedroom+tier filter, expanders, composition/cohorts, C demand, F removed). QA green at 1440/390; verify clean. |
+| 2026-08-02 14:02 | R3B | Suburb Explorer Round 3B — bed×tier `_x` filter page-wide, Movement first, banner composition strip + filter tags, A3/C14/D23/ladder removed, D24↑, white separators. QA green 1440/390; verify clean. |
