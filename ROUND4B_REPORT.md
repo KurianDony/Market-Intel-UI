@@ -75,4 +75,9 @@ Also: `npm run lint` (0 errors), `npx tsc --noEmit` clean, `npm run verify` (pro
 
 ## Deploy
 
-`dev` → `main` after green QA. Production READY on **marketmeerkat.guru** (see commit/Vercel IDs below after push).
+`dev` → `main` after green QA (`3191c27`). Production READY:
+
+- Commit: `3191c27`
+- Vercel Production: deployment `5712470991` (success)
+- Alias: **marketmeerkat.guru**
+- Prod harness re-run: Round 4B visual pass clean at 1440/390 (Strathfield, gap-adjacent week, Mayfield West).
