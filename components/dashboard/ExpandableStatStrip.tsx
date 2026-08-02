@@ -11,6 +11,8 @@ export type ExpandableStatItem = {
   label: string;
   value: string;
   sub?: string;
+  /** Native title tooltip on the label (e.g. movement rank definition). */
+  tooltip?: string;
   delta?: DeltaReading | null;
   series?: SparkPoint[];
   /** Extra expander content (e.g. full area rank table). */
@@ -53,6 +55,7 @@ function ExpandableStatCell({ item }: { item: ExpandableStatItem }) {
           <span
             className="text-[10px] uppercase tracking-[0.15em]"
             style={{ color: INK_60 }}
+            title={item.tooltip}
           >
             {item.label}
           </span>

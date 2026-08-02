@@ -92,3 +92,5 @@
 | 2026-08-02 14:02 | R3B | Suburb Explorer Round 3B — bed×tier `_x` filter page-wide, Movement first, banner composition strip + filter tags, A3/C14/D23/ladder removed, D24↑, white separators. QA green 1440/390; verify clean. |
 
 | 2026-08-02 19:15 | R4B | Suburb Explorer Round 4B — dual-thumb bed range (1..6plus, never bare 6), movement_x filters composition/DOM/reprice/turnover, DOM p25-p75, 3-week reprice, composition numerics, A–F re-letter, no card codes / G2 section sub-labels / em-dashes. QA green 1440/390; verify clean. |
+
+| 2026-08-02 21:45 | R5 | Round 5 — slider snap, strip removed, category selector (supply-only), absolute band labels, Movement rank (v5), Geography removed; Area Liquidity first from dash_area_movement_x / cohorts_x / leaderboard. QA green 1440/390 incl. basis 2026-06-29 + gone_counts; verify clean. |

@@ -27,20 +27,72 @@ export type PercentileWeek = {
   p90: number | null;
 };
 
-const BANDS = [
-  { key: "b20", name: "≤ p20≈p10", fill: "#2a2a2a" },
-  { key: "b40", name: "p20–p40≈p25", fill: "#444444" },
-  { key: "b60", name: "p40–p60≈p50", fill: "#666666" },
-  { key: "b80", name: "p60–p80≈p75", fill: "#999999" },
-  { key: "b100", name: "p80–p100≈p90", fill: "#cccccc" },
-] as const;
+type BandDef = {
+  key: "b20" | "b40" | "b60" | "b80" | "b100";
+  /** Stack height key — still the delta for rendering. */
+  fill: string;
+  /** Absolute band label using lo/hi percentile names. */
+  labelOf: (lo: number, hi: number) => string;
+  loKey: keyof PercentileWeek;
+  hiKey: keyof PercentileWeek;
+};
+
+const BANDS: BandDef[] = [
+  {
+    key: "b20",
+    fill: "#2a2a2a",
+    loKey: "p10",
+    hiKey: "p10",
+    labelOf: (_lo, hi) => `≤ P20: $${Math.round(hi)}`,
+  },
+  {
+    key: "b40",
+    fill: "#444444",
+    loKey: "p10",
+    hiKey: "p25",
+    labelOf: (lo, hi) => `P20–P40: $${Math.round(lo)}–$${Math.round(hi)}`,
+  },
+  {
+    key: "b60",
+    fill: "#666666",
+    loKey: "p25",
+    hiKey: "p50",
+    labelOf: (lo, hi) => `P40–P60: $${Math.round(lo)}–$${Math.round(hi)}`,
+  },
+  {
+    key: "b80",
+    fill: "#999999",
+    loKey: "p50",
+    hiKey: "p75",
+    labelOf: (lo, hi) => `P60–P80: $${Math.round(lo)}–$${Math.round(hi)}`,
+  },
+  {
+    key: "b100",
+    fill: "#cccccc",
+    loKey: "p75",
+    hiKey: "p90",
+    labelOf: (lo, hi) => `P80–P100: $${Math.round(lo)}–$${Math.round(hi)}`,
+  },
+];
 
 /** Thin white stroke between stacked band segments (Round 3B). */
 const BAND_STROKE = "#ffffff";
 
+function absoluteBandLabel(
+  key: BandDef["key"],
+  row: PercentileWeek,
+): string {
+  const def = BANDS.find((b) => b.key === key)!;
+  const lo = row[def.loKey];
+  const hi = row[def.hiKey];
+  if (typeof lo !== "number" || typeof hi !== "number") return def.key;
+  return def.labelOf(lo, hi);
+}
+
 /**
  * Stacked band chart — gradient greys for percentile slices over time.
  * Hover dims non-hovered bands; white separators mark splits.
+ * Labels / tooltips show absolute price levels (Round 5), not stack deltas.
  */
 export function PercentileBandChart({
   weeks,
@@ -55,6 +107,17 @@ export function PercentileBandChart({
 
   if (weeks.length === 0) return <EmptyChart height={height} />;
 
+  // Legend uses the latest week with complete percentiles for absolute labels.
+  const legendWeek =
+    [...weeks].reverse().find(
+      (w) =>
+        w.p10 != null &&
+        w.p25 != null &&
+        w.p50 != null &&
+        w.p75 != null &&
+        w.p90 != null,
+    ) ?? null;
+
   const data = weeks.map((w) => {
     const p10 = w.p10;
     const p25 = w.p25;
@@ -66,6 +129,11 @@ export function PercentileBandChart({
       return {
         week: w.week,
         tick: formatWeekTick(w.week),
+        p10,
+        p25,
+        p50,
+        p75,
+        p90,
         b20: null,
         b40: null,
         b60: null,
@@ -76,6 +144,12 @@ export function PercentileBandChart({
     return {
       week: w.week,
       tick: formatWeekTick(w.week),
+      p10,
+      p25,
+      p50,
+      p75,
+      p90,
+      // Stack heights remain deltas for correct stacked rendering.
       b20: p10,
       b40: Math.max(0, p25 - p10),
       b60: Math.max(0, p50 - p25),
@@ -83,6 +157,11 @@ export function PercentileBandChart({
       b100: Math.max(0, p90 - p75),
     };
   });
+
+  const legendName = (key: BandDef["key"], fallback: string) => {
+    if (!legendWeek) return fallback;
+    return absoluteBandLabel(key, legendWeek);
+  };
 
   return (
     <ChartViewport height={height}>
@@ -115,7 +194,22 @@ export function PercentileBandChart({
             const week = payload?.[0]?.payload?.week as string | undefined;
             return week ? formatWeekLong(week) : "";
           }}
-          formatter={(v: number, name: string) => [`$${Math.round(v)}`, name]}
+          formatter={(v, name, item) => {
+            const payload = item?.payload as PercentileWeek | undefined;
+            const key = item?.dataKey as BandDef["key"] | undefined;
+            if (!payload || !key) return [String(v ?? "—"), String(name ?? "")];
+            const label = absoluteBandLabel(key, payload);
+            const def = BANDS.find((b) => b.key === key)!;
+            const lo = payload[def.loKey];
+            const hi = payload[def.hiKey];
+            const value =
+              typeof lo === "number" && typeof hi === "number"
+                ? key === "b20"
+                  ? `$${Math.round(hi)}`
+                  : `$${Math.round(lo)}–$${Math.round(hi)}`
+                : "—";
+            return [value, label];
+          }}
         />
         <Legend {...CHART_LEGEND} />
         {BANDS.map((b) => {
@@ -125,7 +219,18 @@ export function PercentileBandChart({
               key={b.key}
               type="linear"
               dataKey={b.key}
-              name={b.name}
+              name={legendName(
+                b.key,
+                b.key === "b20"
+                  ? "≤ P20"
+                  : b.key === "b40"
+                    ? "P20–P40"
+                    : b.key === "b60"
+                      ? "P40–P60"
+                      : b.key === "b80"
+                        ? "P60–P80"
+                        : "P80–P100",
+              )}
               stackId="bands"
               fill={b.fill}
               stroke={dimmed ? INK_20 : BAND_STROKE}

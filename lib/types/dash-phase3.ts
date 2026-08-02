@@ -22,7 +22,10 @@ export type DashSuburbWeekly = {
   live_listings: number | null;
   /** @deprecated v2 — always NULL; show demand_ratio instead. */
   listings_per_seeker: number | null;
+  /** @deprecated LEGACY — rank by total_listings DESC; prefer movement_rank. */
   rank_in_area: number | null;
+  /** v5 — dense_rank by gone_count DESC within area-week; NULL when no movement row. */
+  movement_rank: number | null;
   wow_avg_rent: number | null;
   mom_avg_rent: number | null;
   qoq_avg_rent: number | null;
@@ -148,16 +151,20 @@ export type DashSuburbCohortX = {
   median_weeks_on_market: number | null;
 };
 
-/** Lightweight peer row for the rank-in-area expander table. */
+/** Lightweight peer row for the movement-rank expander table. */
 export type DashSuburbRankPeer = {
   suburb_id: number;
   suburb: string;
   suburb_slug: string;
   rank_in_area: number | null;
+  movement_rank: number | null;
   live_listings: number | null;
   total_listings: number | null;
   avg_rent: number | null;
   demand_ratio: number | null;
+  gone_count?: number | null;
+  new_count?: number | null;
+  stock?: number | null;
 };
 
 export type DashSuburbPriceStats = {
@@ -293,6 +300,59 @@ export type DashAreaMovement = {
   net_flow: number;
   turnover: number | null;
   dom_median_days: number | null;
+};
+
+/** v5 — area stock/flow/reprice/DOM at bed-range × tier. */
+export type DashAreaMovementX = {
+  area_slug: string;
+  iso_week: string;
+  bed_min: string;
+  bed_max: string;
+  tier: string;
+  stock: number;
+  new_count: number;
+  gone_count: number;
+  repriced_count: number;
+  reprice_up: number;
+  reprice_down: number;
+  carried_count: number | null;
+  turnover: number | null;
+  dom_median: number | null;
+  dom_p25: number | null;
+  dom_p75: number | null;
+};
+
+/** v5 — area added/removed cohort profiles at bed-range × tier. */
+export type DashAreaCohortX = {
+  area_slug: string;
+  iso_week: string;
+  cohort: "added" | "removed";
+  bed_min: string;
+  bed_max: string;
+  tier: string;
+  count: number;
+  median_rent: number | null;
+  p25: number | null;
+  p75: number | null;
+  dom_median: number | null;
+  dom_p25: number | null;
+  dom_p75: number | null;
+  repriced_share: number | null;
+  median_weeks_on_market: number | null;
+};
+
+/** v5 view — per-suburb movement leaderboard within an area-week. */
+export type DashAreaMovementLeaderboard = {
+  area_slug: string;
+  iso_week: string;
+  suburb_id: number;
+  suburb_slug: string;
+  suburb: string;
+  gone_count: number;
+  new_count: number;
+  net_flow: number;
+  stock: number;
+  movement_rank: number | null;
 };
 
 export type DashAreaCoverage = {

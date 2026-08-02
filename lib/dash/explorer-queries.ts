@@ -2,8 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { slugifyName, stateFromSlug, suburbSlugShort } from "@/lib/dash/slugs";
 import { buildWeekAxis, findGapWeeks, latestRow, rowAsOf } from "@/lib/dash/iso-week";
 import type {
+  DashAreaCohortX,
   DashAreaCoverage,
   DashAreaMovement,
+  DashAreaMovementLeaderboard,
+  DashAreaMovementX,
   DashAreaPriceStats,
   DashAreaWeekly,
   DashCityWeekly,
@@ -71,8 +74,10 @@ export type SuburbExplorerData = {
   bandDefinitions: DashBandDefinition[];
   areaWeekly: DashAreaWeekly[];
   cityWeekly: DashCityWeekly[];
-  /** Area peers for the selected week — rank-in-area expander. */
+  /** Area peers for the movement-rank expander (basis week). */
   areaPeers: DashSuburbRankPeer[];
+  /** Latest movement week ≤ selected with a movement row (basis for movement_rank). */
+  movementBasisWeek: string | null;
   listingMix: DashAreaListingMixBySuburb | null;
 };
 
@@ -94,6 +99,14 @@ export type AreaAnalyticsData = {
   weekly: DashAreaWeekly[];
   priceStats: DashAreaPriceStats[];
   movement: DashAreaMovement[];
+  /** v5 — bed-range × tier area movement. */
+  movementX: DashAreaMovementX[];
+  /** v5 — bed-range × tier area cohorts. */
+  cohortsX: DashAreaCohortX[];
+  /** v5 — per-suburb movement leaderboard (all weeks for the area). */
+  movementLeaderboard: DashAreaMovementLeaderboard[];
+  /** Latest week ≤ selected with gone_count > 0 (movement-complete). */
+  movementCompleteWeek: string | null;
   coverage: DashAreaCoverage[];
   cityWeekly: DashCityWeekly[];
   leaderboard: DashAreaLeaderboard[];
@@ -125,6 +138,38 @@ async function fetchBandDefinitions(
  * Page with `.range` until exhausted. Also drop legacy bare-`6` endpoints — the
  * UI scale is 1..5..6plus only (Round 4B).
  */
+async function fetchAllXRows<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  table:
+    | "dash_suburb_price_stats_x"
+    | "dash_suburb_supply_x"
+    | "dash_suburb_cohorts_x"
+    | "dash_suburb_movement_x"
+    | "dash_area_movement_x"
+    | "dash_area_cohorts_x",
+  filter:
+    | { column: "suburb_id"; value: number }
+    | { column: "area_slug"; value: string },
+): Promise<T[]> {
+  const pageSize = 1000;
+  const all: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq(filter.column, filter.value)
+      .neq("bed_min", "6")
+      .neq("bed_max", "6")
+      .order("iso_week", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const chunk = (data ?? []) as T[];
+    all.push(...chunk);
+    if (chunk.length < pageSize) break;
+  }
+  return all;
+}
+
 async function fetchAllSuburbXRows<T>(
   supabase: Awaited<ReturnType<typeof createClient>>,
   table:
@@ -134,19 +179,33 @@ async function fetchAllSuburbXRows<T>(
     | "dash_suburb_movement_x",
   suburbId: number,
 ): Promise<T[]> {
+  return fetchAllXRows<T>(supabase, table, { column: "suburb_id", value: suburbId });
+}
+
+async function fetchAllAreaXRows<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  table: "dash_area_movement_x" | "dash_area_cohorts_x",
+  areaSlug: string,
+): Promise<T[]> {
+  return fetchAllXRows<T>(supabase, table, { column: "area_slug", value: areaSlug });
+}
+
+async function fetchAreaMovementLeaderboard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  areaSlug: string,
+): Promise<DashAreaMovementLeaderboard[]> {
   const pageSize = 1000;
-  const all: T[] = [];
+  const all: DashAreaMovementLeaderboard[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
-      .from(table)
+      .from("dash_area_movement_leaderboard")
       .select("*")
-      .eq("suburb_id", suburbId)
-      .neq("bed_min", "6")
-      .neq("bed_max", "6")
+      .eq("area_slug", areaSlug)
       .order("iso_week", { ascending: true })
+      .order("suburb_id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) throw error;
-    const chunk = (data ?? []) as T[];
+    const chunk = (data ?? []) as DashAreaMovementLeaderboard[];
     all.push(...chunk);
     if (chunk.length < pageSize) break;
   }
@@ -322,15 +381,46 @@ export async function fetchSuburbExplorerData(
   const selectedWeek = pickWeek(dataWeeks, requestedWeek);
   const areaWeekly = (areaRes.data ?? []) as DashAreaWeekly[];
 
-  const { data: peerData, error: peerErr } = await supabase
-    .from("dash_suburb_weekly")
-    .select(
-      "suburb_id, suburb, suburb_slug, rank_in_area, live_listings, total_listings, avg_rent, demand_ratio",
-    )
-    .eq("area_slug", areaSlug)
-    .eq("iso_week", selectedWeek)
-    .order("rank_in_area", { ascending: true });
+  // Movement basis = latest week ≤ selected that has a movement row.
+  const movementBasisWeek =
+    movement
+      .filter((r) => r.iso_week <= selectedWeek)
+      .sort((a, b) => (a.iso_week < b.iso_week ? 1 : -1))[0]?.iso_week ?? null;
+  const peerWeek = movementBasisWeek ?? selectedWeek;
+
+  const [{ data: peerData, error: peerErr }, { data: movePeerData, error: movePeerErr }] =
+    await Promise.all([
+      supabase
+        .from("dash_suburb_weekly")
+        .select(
+          "suburb_id, suburb, suburb_slug, rank_in_area, movement_rank, live_listings, total_listings, avg_rent, demand_ratio",
+        )
+        .eq("area_slug", areaSlug)
+        .eq("iso_week", peerWeek)
+        .order("movement_rank", { ascending: true }),
+      supabase
+        .from("dash_suburb_movement")
+        .select("suburb_id, gone_count, new_count, stock")
+        .eq("area_slug", areaSlug)
+        .eq("iso_week", peerWeek),
+    ]);
   if (peerErr) throw peerErr;
+  if (movePeerErr) throw movePeerErr;
+
+  const moveById = new Map(
+    ((movePeerData ?? []) as { suburb_id: number; gone_count: number; new_count: number; stock: number }[]).map(
+      (r) => [r.suburb_id, r],
+    ),
+  );
+  const areaPeers: DashSuburbRankPeer[] = ((peerData ?? []) as DashSuburbRankPeer[]).map((p) => {
+    const m = moveById.get(p.suburb_id);
+    return {
+      ...p,
+      gone_count: m?.gone_count ?? null,
+      new_count: m?.new_count ?? null,
+      stock: m?.stock ?? null,
+    };
+  });
 
   return {
     kind: "market-data",
@@ -354,7 +444,8 @@ export async function fetchSuburbExplorerData(
     bandDefinitions: bands,
     areaWeekly,
     cityWeekly: (cityRes.data ?? []) as DashCityWeekly[],
-    areaPeers: (peerData ?? []) as DashSuburbRankPeer[],
+    areaPeers,
+    movementBasisWeek,
     listingMix: (mixRes.data as DashAreaListingMixBySuburb | null) ?? null,
   };
 }
@@ -380,7 +471,7 @@ export async function fetchAreaAnalyticsData(
   const axis = buildWeekAxis(dataWeeks);
   const selectedWeek = pickWeek(dataWeeks, requestedWeek);
 
-  const [priceRes, moveRes, covRes, cityRes, boardRes, subRes, mixRes, histRes, supplyRes, bands] =
+  const [priceRes, moveRes, moveXRows, cohortXRows, movementLeaderboard, covRes, cityRes, boardRes, subRes, mixRes, histRes, supplyRes, bands] =
     await Promise.all([
       supabase
         .from("dash_area_price_stats")
@@ -392,6 +483,9 @@ export async function fetchAreaAnalyticsData(
         .select("*")
         .eq("area_slug", areaSlug)
         .order("iso_week", { ascending: true }),
+      fetchAllAreaXRows<DashAreaMovementX>(supabase, "dash_area_movement_x", areaSlug),
+      fetchAllAreaXRows<DashAreaCohortX>(supabase, "dash_area_cohorts_x", areaSlug),
+      fetchAreaMovementLeaderboard(supabase, areaSlug),
       supabase
         .from("dash_area_coverage")
         .select("*")
@@ -438,6 +532,15 @@ export async function fetchAreaAnalyticsData(
 
   const allBoardRows = (boardRes.data ?? []) as DashAreaLeaderboard[];
   const boardDate = allBoardRows[0]?.snapshot_date;
+  const movement = (moveRes.data ?? []) as DashAreaMovement[];
+  const movementCompleteWeek =
+    movement
+      .filter((r) => r.iso_week <= selectedWeek && r.gone_count > 0)
+      .sort((a, b) => (a.iso_week < b.iso_week ? 1 : -1))[0]?.iso_week ??
+    movement
+      .filter((r) => r.iso_week <= selectedWeek)
+      .sort((a, b) => (a.iso_week < b.iso_week ? 1 : -1))[0]?.iso_week ??
+    null;
 
   return {
     areaSlug,
@@ -449,7 +552,11 @@ export async function fetchAreaAnalyticsData(
     selectedWeek,
     weekly,
     priceStats: (priceRes.data ?? []) as DashAreaPriceStats[],
-    movement: (moveRes.data ?? []) as DashAreaMovement[],
+    movement,
+    movementX: moveXRows,
+    cohortsX: cohortXRows,
+    movementLeaderboard,
+    movementCompleteWeek,
     coverage: (covRes.data ?? []) as DashAreaCoverage[],
     cityWeekly: (cityRes.data ?? []) as DashCityWeekly[],
     leaderboard: allBoardRows.filter((r) => r.snapshot_date === boardDate),

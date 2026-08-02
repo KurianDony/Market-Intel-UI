@@ -12,6 +12,7 @@ import {
   AreaLeaderboardTable,
   type LeaderboardMovement,
 } from "@/components/dashboard/AreaLeaderboardTable";
+import { AreaAnalyticsClient } from "@/components/dashboard/area/AreaLiquiditySection";
 import { WeeklyLineChart } from "@/components/dashboard/charts/WeeklyLineChart";
 import { HistogramChart } from "@/components/dashboard/charts/HistogramChart";
 import { ListingMixDonut } from "@/components/dashboard/charts/ListingMixDonut";
@@ -55,6 +56,10 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
     weekly,
     priceStats,
     movement,
+    movementX,
+    cohortsX,
+    movementLeaderboard,
+    movementCompleteWeek,
     coverage,
     cityWeekly,
     leaderboard,
@@ -153,6 +158,20 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
       />
       <WeekNavFootnote gapWeeks={gapWeeks} />
 
+      <AreaAnalyticsClient
+        liquidity={{
+          areaName,
+          stateSlug,
+          areaSlug,
+          axis,
+          gapWeeks,
+          selectedWeek,
+          movementCompleteWeek,
+          movementX,
+          cohortsX,
+          leaderboard: movementLeaderboard,
+        }}
+      >
       {/* ── vs SYDNEY ─────────────────────────────────────────────── */}
       <SectionHeading
         letter="S"
@@ -624,9 +643,11 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
 
       <div className="mt-8 border-t pt-4" style={{ borderColor: INK_20 }}>
         <p className="mb-3 text-[10px] uppercase tracking-[0.1em]" style={{ color: INK_40 }}>
-          Week-indexed figures read the Phase-3 ISO-week tables — one row per week, so
-          split-fetch weeks contribute exactly one point. Legacy snapshot tables supply only
-          the price ladder, supply percentiles and listing-type mix.
+          Week-indexed figures read the Phase-3 ISO-week tables - one row per week, so
+          split-fetch weeks contribute exactly one point. Liquidity (first) uses
+          dash_area_movement_x / cohorts_x / movement_leaderboard at the movement-complete
+          basis week. Legacy snapshot tables supply only the price ladder, supply percentiles
+          and listing-type mix.
         </p>
         <MiniTable
           cols={["axis weeks", "weeks with data", "gap weeks", "selected"]}
@@ -643,6 +664,7 @@ export async function AreaDashboardContent({ params, searchParams }: Props) {
           ← Back to map
         </Link>
       </p>
+      </AreaAnalyticsClient>
     </DashboardShell>
   );
 }

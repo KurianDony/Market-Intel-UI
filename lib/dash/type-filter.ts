@@ -119,12 +119,39 @@ export function resolveTypeDim(filter: TypeFilter): TypeDimKey {
   return { type_dim: "all", type_key: "all" };
 }
 
+/** Contract g2 listing_category keys — count-only, not on `_x`. */
+export const LISTING_CATEGORY_KEYS = [
+  "share_houses",
+  "studios",
+  "one_beds",
+  "whole_properties",
+  "student_accommodation",
+  "granny_flats",
+  "homestays",
+] as const;
+
+export type ListingCategoryKey = (typeof LISTING_CATEGORY_KEYS)[number];
+
 export const LISTING_CATEGORY_LABELS: Record<string, string> = {
   share_houses: "Share houses",
   granny_flats: "Granny flats",
   studios: "Studios",
-  one_beds: "1-beds",
+  one_beds: "1-bed apartments",
   whole_properties: "Whole properties",
-  student_accommodation: "Student accom.",
+  student_accommodation: "Student accommodation",
   homestays: "Homestays",
 };
+
+export type CategoryFilter = "all" | ListingCategoryKey;
+
+export const CATEGORY_FILTER_OPTIONS: { key: CategoryFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  ...LISTING_CATEGORY_KEYS.map((key) => ({
+    key,
+    label: LISTING_CATEGORY_LABELS[key] ?? key,
+  })),
+];
+
+export function isCategoryFilterActive(category: CategoryFilter): boolean {
+  return category !== "all";
+}

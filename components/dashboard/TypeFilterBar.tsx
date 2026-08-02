@@ -1,13 +1,15 @@
 "use client";
 
+import { useRef, useState } from "react";
 import {
   BED_LEVELS,
   BED_LEVEL_LABELS,
+  CATEGORY_FILTER_OPTIONS,
   TIER_OPTIONS,
   bedLevelAt,
   bedLevelIndex,
   bedRangeLabel,
-  type BedLevel,
+  type CategoryFilter,
   type TierKey,
   type TypeFilter,
 } from "@/lib/dash/type-filter";
@@ -15,26 +17,36 @@ import { INK_0, INK_5, INK_20, INK_40, INK_60, INK_80, INK_100 } from "@/lib/pal
 
 /**
  * Page-top bed-range × tier filter — dual-thumb range over 1…6+,
- * premium/basic as an independent toggle. Both combine freely via `_x` tables.
- * UI never exposes bare `6` (legacy scale key).
+ * premium/basic as an independent toggle. Optional category selector
+ * (supply-scoped only). Discrete detents only; label tracks thumb indices.
  */
 export function TypeFilterBar({
   value,
   onChange,
   note,
+  category,
+  onCategoryChange,
+  showCategory = false,
 }: {
   value: TypeFilter;
   onChange: (next: TypeFilter) => void;
   note?: string;
+  category?: CategoryFilter;
+  onCategoryChange?: (next: CategoryFilter) => void;
+  showCategory?: boolean;
 }) {
   const minIdx = Math.min(bedLevelIndex(value.bedMin), bedLevelIndex(value.bedMax));
   const maxIdx = Math.max(bedLevelIndex(value.bedMin), bedLevelIndex(value.bedMax));
   const maxPos = BED_LEVELS.length - 1;
+  const [activeThumb, setActiveThumb] = useState<"min" | "max" | null>(null);
+  const dragging = useRef<"min" | "max" | null>(null);
 
-  const setRange = (nextMin: BedLevel, nextMax: BedLevel) => {
-    const lo = Math.min(bedLevelIndex(nextMin), bedLevelIndex(nextMax));
-    const hi = Math.max(bedLevelIndex(nextMin), bedLevelIndex(nextMax));
-    onChange({ ...value, bedMin: bedLevelAt(lo), bedMax: bedLevelAt(hi) });
+  const setRange = (nextMinIdx: number, nextMaxIdx: number) => {
+    const lo = Math.max(0, Math.min(maxPos, Math.round(nextMinIdx)));
+    const hi = Math.max(0, Math.min(maxPos, Math.round(nextMaxIdx)));
+    const a = Math.min(lo, hi);
+    const b = Math.max(lo, hi);
+    onChange({ ...value, bedMin: bedLevelAt(a), bedMax: bedLevelAt(b) });
   };
 
   return (
@@ -42,8 +54,9 @@ export function TypeFilterBar({
       className="mb-4 border px-3 py-3 sm:px-4"
       style={{ borderColor: INK_20, background: INK_5 }}
       data-type-filter=""
-      data-bed-min={value.bedMin}
-      data-bed-max={value.bedMax}
+      data-bed-min={BED_LEVELS[minIdx]}
+      data-bed-max={BED_LEVELS[maxIdx]}
+      data-category={category ?? "all"}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-8">
         <div className="min-w-0 flex-1">
@@ -59,7 +72,7 @@ export function TypeFilterBar({
               style={{ color: INK_80 }}
               data-bed-label=""
             >
-              {bedRangeLabel(value)}
+              {bedRangeLabel({ ...value, bedMin: bedLevelAt(minIdx), bedMax: bedLevelAt(maxIdx) })}
             </span>
           </div>
 
@@ -69,7 +82,7 @@ export function TypeFilterBar({
               className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2"
               style={{ background: INK_20 }}
             />
-            {/* Active range fill */}
+            {/* Active range fill — positions from discrete indices only */}
             <div
               className="absolute top-1/2 h-[2px] -translate-y-1/2"
               style={{
@@ -78,6 +91,18 @@ export function TypeFilterBar({
                 background: INK_100,
               }}
             />
+            {/* Detent ticks */}
+            {BED_LEVELS.map((_, i) => (
+              <div
+                key={i}
+                className="absolute top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2"
+                style={{
+                  left: `${(i / maxPos) * 100}%`,
+                  background: i >= minIdx && i <= maxIdx ? INK_100 : INK_40,
+                }}
+                aria-hidden
+              />
+            ))}
             <input
               type="range"
               min={0}
@@ -86,12 +111,27 @@ export function TypeFilterBar({
               value={minIdx}
               aria-label="Bedroom range minimum"
               data-bed-min-slider=""
+              onPointerDown={() => {
+                dragging.current = "min";
+                setActiveThumb("min");
+              }}
+              onPointerUp={() => {
+                dragging.current = null;
+                setActiveThumb(null);
+              }}
               onChange={(e) => {
-                const next = Number(e.target.value);
-                setRange(bedLevelAt(next), bedLevelAt(Math.max(next, maxIdx)));
+                const next = Math.round(Number(e.target.value));
+                setRange(next, Math.max(next, maxIdx));
               }}
               className="bed-range-thumb absolute inset-0 w-full appearance-none bg-transparent"
-              style={{ zIndex: minIdx >= maxIdx - 0 ? 3 : 2 }}
+              style={{
+                zIndex:
+                  activeThumb === "min" || dragging.current === "min"
+                    ? 5
+                    : minIdx === maxIdx
+                      ? 3
+                      : 2,
+              }}
             />
             <input
               type="range"
@@ -101,12 +141,25 @@ export function TypeFilterBar({
               value={maxIdx}
               aria-label="Bedroom range maximum"
               data-bed-max-slider=""
+              onPointerDown={() => {
+                dragging.current = "max";
+                setActiveThumb("max");
+              }}
+              onPointerUp={() => {
+                dragging.current = null;
+                setActiveThumb(null);
+              }}
               onChange={(e) => {
-                const next = Number(e.target.value);
-                setRange(bedLevelAt(Math.min(next, minIdx)), bedLevelAt(next));
+                const next = Math.round(Number(e.target.value));
+                setRange(Math.min(next, minIdx), next);
               }}
               className="bed-range-thumb absolute inset-0 w-full appearance-none bg-transparent"
-              style={{ zIndex: 4 }}
+              style={{
+                zIndex:
+                  activeThumb === "max" || dragging.current === "max"
+                    ? 5
+                    : 4,
+              }}
             />
           </div>
 
@@ -122,7 +175,7 @@ export function TypeFilterBar({
               }}
               aria-pressed={minIdx === 0 && maxIdx === maxPos}
               data-bed-chip="all"
-              onClick={() => setRange("1", "6plus")}
+              onClick={() => setRange(0, maxPos)}
             >
               All
             </button>
@@ -138,7 +191,7 @@ export function TypeFilterBar({
                   style={{ color: single || inRange ? INK_100 : INK_40 }}
                   aria-pressed={single}
                   data-bed-chip={level}
-                  onClick={() => setRange(level, level)}
+                  onClick={() => setRange(idx, idx)}
                 >
                   {BED_LEVEL_LABELS[level]}
                 </button>
@@ -174,6 +227,34 @@ export function TypeFilterBar({
             ))}
           </div>
         </div>
+
+        {showCategory && onCategoryChange && (
+          <div className="min-w-0 shrink-0 lg:max-w-[220px]" data-category-filter="">
+            <span
+              className="mb-2 block text-[10px] uppercase tracking-[0.15em]"
+              style={{ color: INK_60 }}
+            >
+              Type
+            </span>
+            <select
+              value={category ?? "all"}
+              aria-label="Property type"
+              data-category-select=""
+              onChange={(e) => onCategoryChange(e.target.value as CategoryFilter)}
+              className="w-full border bg-transparent px-2.5 py-1.5 text-[11px] uppercase tracking-[0.08em]"
+              style={{ borderColor: INK_20, color: INK_100 }}
+            >
+              {CATEGORY_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[9px] uppercase tracking-[0.08em]" style={{ color: INK_40 }}>
+              Supply only
+            </p>
+          </div>
+        )}
       </div>
       {note && (
         <p className="mt-2 text-[10px] uppercase tracking-[0.1em]" style={{ color: INK_40 }}>

@@ -38,13 +38,18 @@ import { formatCount, formatCurrency, formatRatio } from "@/lib/dash/format";
 import {
   DEFAULT_TYPE_FILTER,
   LISTING_CATEGORY_LABELS,
+  isCategoryFilterActive,
   isFilterActive,
   resolveXFilter,
   typeFilterLabel,
+  type CategoryFilter,
   type TypeFilter,
 } from "@/lib/dash/type-filter";
 import { INK_20, INK_40, INK_60 } from "@/lib/palette/v2";
 import type { DashSuburbCohortX, DashSuburbMovementX } from "@/lib/types/dash-phase3";
+
+const CATEGORY_SCOPE_TAG =
+  "category filter applies to supply - listing-level analytics cover rooms data";
 
 export function SuburbExplorerClient({
   data,
@@ -56,8 +61,10 @@ export function SuburbExplorerClient({
   areaSlug: string;
 }) {
   const [filter, setFilter] = useState<TypeFilter>(DEFAULT_TYPE_FILTER);
+  const [category, setCategory] = useState<CategoryFilter>("all");
   const xKey = resolveXFilter(filter);
   const filtered = isFilterActive(filter);
+  const categoryActive = isCategoryFilterActive(category);
 
   const {
     identity,
@@ -79,6 +86,7 @@ export function SuburbExplorerClient({
     areaWeekly,
     cityWeekly,
     areaPeers,
+    movementBasisWeek,
   } = data;
 
   const basePath = `/${stateSlug}/${areaSlug}/${identity.slug.replace(/-\d+$/, "")}`;
@@ -285,7 +293,7 @@ export function SuburbExplorerClient({
   const rankDelta = resolveDelta({
     wow: null,
     deltaVsPrevObs: (() => {
-      const pts = series((r) => r.rank_in_area).filter(
+      const pts = series((r) => r.movement_rank).filter(
         (p) => p.value != null && p.week <= selectedWeek,
       );
       if (pts.length < 2) return null;
@@ -307,9 +315,33 @@ export function SuburbExplorerClient({
         currency: true,
       });
 
-  const categorySupply = supplyByType.filter(
-    (r) => r.iso_week === (supplyRow?.iso_week ?? g2Week),
-  );
+  const categorySupply = supplyByType
+    .filter((r) => r.iso_week === (supplyRow?.iso_week ?? g2Week))
+    .filter((r) => (categoryActive ? r.type_key === category : true));
+
+  const movementRankRow =
+    movementBasisWeek != null
+      ? (indexByWeek(weekly).get(movementBasisWeek) ?? null)
+      : spine;
+  const movementRank = movementRankRow?.movement_rank ?? null;
+  const movementRankBehind =
+    movementBasisWeek != null && axis.includes(movementBasisWeek)
+      ? axis.indexOf(selectedWeek) - axis.indexOf(movementBasisWeek)
+      : 0;
+  const movementRankSub =
+    movementRank == null
+      ? "no movement data"
+      : [
+          filtered ? "suburb-wide" : null,
+          movementRankBehind > 0
+            ? `stale ${movementRankBehind}w · basis ${formatWeekLong(movementBasisWeek!)}`
+            : areaRow
+              ? `of ${areaRow.suburb_count}`
+              : null,
+          "1 = most disappeared",
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
   const addedLatest = latestCohort(cohortsTyped, "added", selectedWeek);
   const removedLatest = latestCohort(cohortsTyped, "removed", selectedWeek);
@@ -357,19 +389,6 @@ export function SuburbExplorerClient({
     ? price?.p50 ?? null
     : (price?.p50 ?? (spine?.avg_rent == null ? null : Number(spine.avg_rent)));
 
-  const compositionStrip = move
-    ? {
-        up: move.reprice_up,
-        down: move.reprice_down,
-        carried:
-          move.carried_count != null
-            ? move.carried_count
-            : Math.max(0, move.stock - move.new_count - move.repriced_count),
-        lost: move.gone_count,
-        added: move.new_count,
-      }
-    : null;
-
   const ratioChangeLabel =
     spine?.alltime_ratio_delta == null
       ? null
@@ -412,7 +431,10 @@ export function SuburbExplorerClient({
       <TypeFilterBar
         value={filter}
         onChange={setFilter}
-        note="Bed range × tier combine freely · applies to the entire page"
+        category={category}
+        onCategoryChange={setCategory}
+        showCategory
+        note="Bed range × tier combine freely · type selector scopes supply counts only"
       />
 
       <ExpandableStatStrip
@@ -420,11 +442,16 @@ export function SuburbExplorerClient({
           {
             label: "Typical rent",
             value: formatCurrency(bannerRent),
-            sub: filtered
-              ? `listings-basis · ${typeFilterLabel(filter)}${price ? ` · n=${price.sample_n}` : ""}`
-              : price
-                ? `G2 p50 · n=${price.sample_n}`
-                : "G1 avg",
+            sub: [
+              filtered
+                ? `listings-basis · ${typeFilterLabel(filter)}${price ? ` · n=${price.sample_n}` : ""}`
+                : price
+                  ? `G2 p50 · n=${price.sample_n}`
+                  : "G1 avg",
+              categoryActive ? CATEGORY_SCOPE_TAG : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
             delta: rentStripDelta,
             series: p50Series.some((p) => p.value != null)
               ? p50Series
@@ -433,57 +460,81 @@ export function SuburbExplorerClient({
           {
             label: "Supply",
             value: formatCount(supplyValue),
-            sub: `${supplyBasis} listings`,
+            sub: [
+              `${supplyBasis} listings`,
+              categoryActive ? CATEGORY_SCOPE_TAG : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
             delta: supplyDelta,
             series: supplySeries,
           },
           {
             label: "Implied seekers",
             value: formatCount(bannerSeekers),
-            sub: filtered
-              ? "estimate · demand_ratio × segment live"
-              : spine?.implied_seekers_stale_weeks && spine.implied_seekers_stale_weeks > 0
-                ? `stale ${spine.implied_seekers_stale_weeks}w · basis ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "-"}`
-                : "demand_ratio × live listings",
+            sub: [
+              filtered
+                ? "estimate · demand_ratio × segment live"
+                : spine?.implied_seekers_stale_weeks && spine.implied_seekers_stale_weeks > 0
+                  ? `stale ${spine.implied_seekers_stale_weeks}w · basis ${spine.implied_seekers_basis_week ? formatWeekLong(spine.implied_seekers_basis_week) : "-"}`
+                  : "demand_ratio × live listings",
+              categoryActive ? CATEGORY_SCOPE_TAG : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
             delta: seekerDelta,
             series: impliedSeries,
           },
           {
             label: "Demand ratio",
             value: formatRatio(spine?.demand_ratio),
-            sub: filtered ? "suburb-wide · seekers per room" : "seekers per room",
+            sub: [
+              filtered ? "suburb-wide · seekers per room" : "seekers per room",
+              categoryActive ? CATEGORY_SCOPE_TAG : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
             delta: demandDelta,
             series: demandSeries,
           },
           {
-            label: "Rank in area",
-            value: spine?.rank_in_area != null ? `#${spine.rank_in_area}` : "-",
-            sub: filtered
-              ? `suburb-wide · ${areaRow ? `of ${areaRow.suburb_count}` : "by supply"}`
-              : areaRow
-                ? `of ${areaRow.suburb_count} suburbs`
-                : "by supply",
-            delta: rankDelta,
-            series: series((r) => r.rank_in_area),
+            label: "Movement rank",
+            value: movementRank != null ? `#${movementRank}` : "-",
+            sub: movementRankSub,
+            tooltip:
+              "Ranked by listings disappeared within the area that week - 1 = most movement",
+            delta: movementRank != null ? rankDelta : null,
+            series: series((r) => r.movement_rank),
             expanderExtra: (
               <div>
                 <p
                   className="mb-2 text-[10px] uppercase tracking-[0.1em]"
                   style={{ color: INK_60 }}
                 >
-                  All suburbs in {areaName} · w/c {formatWeekLong(selectedWeek)}
+                  Movement rank · {areaName}
+                  {movementBasisWeek
+                    ? ` · w/c ${formatWeekLong(movementBasisWeek)}`
+                    : ""}
                 </p>
                 <MiniTable
-                  cols={["rank", "suburb", "listings", "avg $", "ratio"]}
+                  cols={["rank", "suburb", "gone", "new", "stock"]}
                   rows={areaPeers
                     .slice()
-                    .sort((a, b) => (a.rank_in_area ?? 999) - (b.rank_in_area ?? 999))
+                    .sort((a, b) => {
+                      const ar = a.movement_rank;
+                      const br = b.movement_rank;
+                      if (ar == null && br == null) return a.suburb.localeCompare(b.suburb);
+                      if (ar == null) return 1;
+                      if (br == null) return -1;
+                      if (ar !== br) return ar - br;
+                      return a.suburb.localeCompare(b.suburb);
+                    })
                     .map((p) => [
-                      p.rank_in_area,
+                      p.movement_rank,
                       p.suburb,
-                      p.live_listings ?? p.total_listings,
-                      p.avg_rent == null ? null : Math.round(Number(p.avg_rent)),
-                      p.demand_ratio == null ? null : Number(p.demand_ratio).toFixed(1),
+                      p.gone_count ?? null,
+                      p.new_count ?? null,
+                      p.stock ?? p.live_listings ?? p.total_listings,
                     ])}
                 />
               </div>
@@ -491,30 +542,6 @@ export function SuburbExplorerClient({
           },
         ]}
       />
-
-      {compositionStrip && (
-        <div
-          className="mb-4 flex flex-wrap gap-x-4 gap-y-1 border px-3 py-2 font-mono text-[11px] tabular-nums"
-          style={{ borderColor: INK_20, color: INK_60 }}
-          data-composition-strip=""
-        >
-          <span>
-            +repriced <strong style={{ color: "inherit" }}>{compositionStrip.up}</strong>
-          </span>
-          <span>
-            −repriced <strong style={{ color: "inherit" }}>{compositionStrip.down}</strong>
-          </span>
-          <span>
-            carried <strong style={{ color: "inherit" }}>{compositionStrip.carried}</strong>
-          </span>
-          <span>
-            lost <strong style={{ color: "inherit" }}>{compositionStrip.lost}</strong>
-          </span>
-          <span>
-            added <strong style={{ color: "inherit" }}>{compositionStrip.added}</strong>
-          </span>
-        </div>
-      )}
 
       <div className="mb-8 space-y-2">
         <p
@@ -545,7 +572,11 @@ export function SuburbExplorerClient({
       </div>
 
       {/* ── A · MOVEMENT ──────────────────────────────────────────── */}
-      <SectionHeading letter="A" title="Movement - liquidity" />
+      <SectionHeading
+        letter="A"
+        title="Movement - liquidity"
+        subtitle={categoryActive ? CATEGORY_SCOPE_TAG : undefined}
+      />
 
       <DashboardCard
         title="Weekly composition"
@@ -632,7 +663,11 @@ export function SuburbExplorerClient({
       </div>
 
       {/* ── B · PRICE ─────────────────────────────────────────────── */}
-      <SectionHeading letter="B" title="Price - what rooms cost" />
+      <SectionHeading
+        letter="B"
+        title="Price - what rooms cost"
+        subtitle={categoryActive ? CATEGORY_SCOPE_TAG : undefined}
+      />
       <MetricGrid>
         <MetricCard
           code="A1"
@@ -710,6 +745,16 @@ export function SuburbExplorerClient({
 
       {/* ── C · SUPPLY ────────────────────────────────────────────── */}
       <SectionHeading letter="C" title="Supply - how much stock" />
+      {categoryActive && (
+        <p
+          className="mb-3 text-[10px] uppercase tracking-[0.1em]"
+          style={{ color: INK_60 }}
+          data-category-supply-note=""
+        >
+          Category filter active: {LISTING_CATEGORY_LABELS[category] ?? category} · count-only
+          from dash_suburb_supply_by_type
+        </p>
+      )}
       <MetricGrid>
         <MetricCard
           code="B7"
@@ -727,6 +772,7 @@ export function SuburbExplorerClient({
           explain="How many listings compete under the selected filter, against the area average."
           series={supplySeries}
           span={2}
+          caveat={categoryActive ? CATEGORY_SCOPE_TAG : undefined}
           table={{
             cols: ["suburb", "area total", "area avg", "Sydney total"],
             rows: [[
@@ -748,6 +794,7 @@ export function SuburbExplorerClient({
           source="dash_suburb_cohorts_x (cohort=added)"
           explain="Fresh listings arriving and the prices they entered at (first observed rent)."
           showSpark={false}
+          caveat={categoryActive ? CATEGORY_SCOPE_TAG : undefined}
           table={
             addedLatest
               ? {
@@ -767,11 +814,16 @@ export function SuburbExplorerClient({
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <DashboardCard
           title="Supply by type"
-          subtitle="listing_category counts (g2_counts) - count-only, not price-filterable"
+          subtitle={
+            categoryActive
+              ? `${LISTING_CATEGORY_LABELS[category] ?? category} · listing_category counts (g2_counts)`
+              : "listing_category counts (g2_counts) - count-only, not price-filterable"
+          }
         >
           {categorySupply.length === 0 ? (
             <p className="text-[12px]" style={{ color: INK_60 }}>
-              No category supply row for this week.
+              No category supply row for this week
+              {categoryActive ? ` (${LISTING_CATEGORY_LABELS[category] ?? category})` : ""}.
             </p>
           ) : (
             <MiniTable
@@ -818,7 +870,11 @@ export function SuburbExplorerClient({
       </div>
 
       {/* ── D · DEMAND ────────────────────────────────────────────── */}
-      <SectionHeading letter="D" title="Demand - suburb-wide" />
+      <SectionHeading
+        letter="D"
+        title="Demand - suburb-wide"
+        subtitle={categoryActive ? CATEGORY_SCOPE_TAG : undefined}
+      />
       <MetricGrid>
         <MetricCard
           code="C12"
@@ -898,7 +954,11 @@ export function SuburbExplorerClient({
       </div>
 
       {/* ── E · CONFIDENCE ────────────────────────────────────────── */}
-      <SectionHeading letter="E" title="Confidence & data quality" />
+      <SectionHeading
+        letter="E"
+        title="Confidence & data quality"
+        subtitle={categoryActive ? CATEGORY_SCOPE_TAG : undefined}
+      />
       <MetricGrid>
         <MetricCard
           code="E25"
@@ -928,37 +988,13 @@ export function SuburbExplorerClient({
         />
       </MetricGrid>
 
-      {/* ── F · GEOGRAPHY ─────────────────────────────────────────── */}
-      <SectionHeading letter="F" title="Geography" />
-      <MetricGrid>
-        <MetricCard
-          code="G27"
-          label="Area & supply rank"
-          value={
-            spine?.rank_in_area == null
-              ? areaName
-              : `${areaName} · rank #${spine.rank_in_area}${areaRow ? ` of ${areaRow.suburb_count}` : ""}`
-          }
-          source="suburbs.area · dash_suburb_weekly.rank_in_area"
-          explain="Where this suburb sits within its area, ranked by supply (1 = most supply)."
-          span={2}
-          series={series((r) => r.rank_in_area)}
-        />
-        <MetricCard
-          code="G—"
-          label="Area coverage this week"
-          value={areaRow ? `${areaRow.suburb_count} suburbs captured` : "-"}
-          source="dash_area_weekly.suburb_count"
-          explain="How many suburbs in this area reported in the selected week."
-        />
-      </MetricGrid>
-
       <div className="mt-8 border-t pt-4" style={{ borderColor: INK_20 }}>
         <p className="mb-3 text-[10px] uppercase tracking-[0.1em]" style={{ color: INK_40 }}>
           Week-indexed figures read the Phase-3 ISO-week tables - one row per week. Under a
           bed-range × tier filter, banner rent/supply/seekers and movement resolve from `_x`
-          segments; rank and demand ratio stay suburb-wide and are tagged. Section order:
-          Movement → Price → Supply → Demand → Confidence → Geography.
+          segments; movement rank and demand ratio stay suburb-wide and are tagged. Category
+          type scopes supply counts only. Section order: Movement → Price → Supply → Demand →
+          Confidence.
         </p>
         <MiniTable
           cols={["axis weeks", "weeks with data", "gap weeks", "selected", "filter"]}
