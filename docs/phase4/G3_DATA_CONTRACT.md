@@ -1,4 +1,4 @@
-# G3 Data Contract v4 — Suburb Explorer + Area Analytics (for Phase 4 UI)
+# G3 Data Contract v5 — Suburb Explorer + Area Analytics (for Phase 4 UI)
 
 Self-contained reference for a frontend dev building the dashboard. Every table
 the UI reads, its columns/types/keys/grain, and an example query per page
@@ -6,26 +6,26 @@ section. All tables are in the **Market-Intel** Supabase project
 (`lyurcephjxokyhiclmgm`), schema `public`, **RLS on with a public SELECT policy**
 (anon key can read all of them). Nothing here is written by the UI — read only.
 
-> **v4 (2026-08-02, Round 4A).** Range grain so the bedroom filter is a contiguous
-> range (e.g. 2–4 beds), plus movement cards that respond to bed×tier filters.
-> 1. **`_x` tables key on `(bed_min, bed_max)` × `tier`** — 28 contiguous ranges
->    over the ordered scale `1 < 2 < 3 < 4 < 5 < 6 < 6plus`. `(1, 6plus)` is the
->    all-range. **`bed_bucket` is retired.** Percentiles are always recomputed
->    from raw listings per range — never merge bucket percentiles.
-> 2. **`dash_suburb_movement_x`** — stock / new / gone / reprice / carried /
->    turnover / DOM at the same range grain. `(1,6plus)/all` reconciles with
->    `dash_suburb_movement` exactly. Movement cards can now respond to filters.
-> 3. **DOM stats** — `dom_p25`, `dom_median`, `dom_p75` on `movement_x` and on
->    `cohorts_x` (removed cohort only).
-> 4. **6plus rule unchanged** — `bedrooms >= 6` → level `6plus`. Level `6` exists
->    on the scale so there are 28 ranges; under today's raw data (1–6) it receives
->    no listings. Single-bucket `(6plus,6plus)` matches the old `bed_bucket='6plus'`.
+> **v5 (2026-08-02, Round 5A).** Movement rank + area movement cross tables.
+> 1. **`movement_rank`** on `dash_suburb_weekly` — `dense_rank()` within
+>    `(area_slug, iso_week)` by **total `gone_count` DESC** among suburbs that
+>    have both a `dash_suburb_movement` row and a weekly row that week. Rank 1 =
+>    most listings disappeared. **NULL** when there is no movement row (no G2
+>    flow that week). Show it at the **movement basis week** only — it does not
+>    exist for weeks without movement rows.
+> 2. **`rank_in_area` is LEGACY** (supply/demand rank by `total_listings`). Still
+>    populated; prefer `movement_rank` for movement leaderboards.
+> 3. **`dash_area_movement_x` / `dash_area_cohorts_x`** — same
+>    `(bed_min,bed_max)×tier` grain as suburb `_x`. Counts summed from member
+>    suburbs; DOM and rent percentiles **recomputed from raw listings at area
+>    grain** (never averaged suburb medians). `(1,6plus)/all` reconciles with
+>    `dash_area_movement`.
+> 4. **`dash_area_movement_leaderboard` view** — single-table read for
+>    per-suburb movement leaderboard: suburb, gone/new/net/stock, movement_rank.
 >
-> **v3 (2026-08-02, Round 3A)** introduced bed×tier `_x` tables (now superseded in
-> grain by v4), banner-under-filter (§0.3), and `carried_count` on movement.
+> **v4 (2026-08-02, Round 4A)** introduced range grain and `dash_suburb_movement_x`.
 >
-> **v2 (2026-08-02, Round 1)** still applies: strict deltas (§0.1), implied
-> seekers (§0.2), and the single-dimension `_by_type` / cohorts grains.
+> **v3 / v2** still apply: banner-under-filter, strict deltas, implied seekers.
 >
 > Nothing was dropped. Deprecated columns still exist and still return rows; they
 > just return NULL.
@@ -140,7 +140,8 @@ figure that *can* be segment-specific must come from the matching
 | Supply (live) | `dash_suburb_supply_x.live_count` for the segment | — |
 | Implied seekers | `dash_suburb_weekly.demand_ratio × supply_x.live_count` (round) | **estimate** |
 | Demand ratio | `dash_suburb_weekly.demand_ratio` | suburb-wide — **tag it** |
-| Rank in area | `dash_suburb_weekly.rank_in_area` | suburb-wide — **tag it** |
+| Rank in area (supply) | `dash_suburb_weekly.rank_in_area` | **LEGACY** suburb-wide supply rank — **tag it** |
+| Movement rank | `dash_suburb_weekly.movement_rank` | suburb-wide; **NULL / hide when no movement row**; show at movement basis week |
 
 Composition / reprice / turnover / DOM under filter read
 `dash_suburb_movement_x` for the same `(bed_min, bed_max, tier)`.
@@ -165,7 +166,10 @@ showImpliedSeekers(
 );
 showComposition(mx); // stock, new, gone, reprice_up/down, carried, turnover, DOM
 showDemandRatio(w.demand_ratio, { scope: "suburb-wide" });
-showRank(w.rank_in_area, { scope: "suburb-wide" });
+showRank(w.rank_in_area, { scope: "suburb-wide", legacy: "supply" }); // LEGACY
+if (w.movement_rank != null) {
+  showMovementRank(w.movement_rank, { basis: "gone_count", week: "movement" });
+}
 ```
 
 **Range key semantics.** Ordered scale: `1 < 2 < 3 < 4 < 5 < 6 < 6plus`.
@@ -184,7 +188,7 @@ today's raw data (1–6 only).
 
 | Table | Grain / key | What it holds |
 |---|---|---|
-| `dash_suburb_weekly` | (suburb_id, iso_week) | Rent/demand/supply spine + strict WoW/MoM/QoQ + prev-obs companions, implied seekers, all-time deltas, 8-wk volatility, in-area rank |
+| `dash_suburb_weekly` | (suburb_id, iso_week) | Rent/demand/supply spine + strict WoW/MoM/QoQ + prev-obs companions, implied seekers, all-time deltas, 8-wk volatility, **LEGACY `rank_in_area`**, **v5 `movement_rank`** |
 | `dash_suburb_price_stats` | (suburb_id, iso_week) | Live-rent percentiles p10/p25/p50/p75/p90, dispersion, IQR, mean, bills premium |
 | `dash_suburb_price_stats_x` | (suburb_id, iso_week, bed_min, bed_max, tier) | **v4** Same percentiles at bed-range × tier — prefer this for combined filters. `bed_bucket` retired |
 | `dash_suburb_price_stats_by_type` | (suburb_id, iso_week, type_dim, type_key) | **v2, superseded by `_x` for combined filters** — still populated for Round 2 |
@@ -198,7 +202,10 @@ today's raw data (1–6 only).
 | `dash_suburb_coverage` | (suburb_id, iso_week) | g1_capable, g1/g2 presence, sample_n, weeks_present_4, confidence badge |
 | `dash_area_weekly` | (area_slug, iso_week) | Area rollup + strict deltas + prev-obs companions + implied seekers + volatility |
 | `dash_area_price_stats` | (area_slug, iso_week) | Area-wide live-rent percentiles |
-| `dash_area_movement` | (area_slug, iso_week) | Area rollup of movement |
+| `dash_area_movement` | (area_slug, iso_week) | Area rollup of movement (DOM from raw listings as of v5) |
+| `dash_area_movement_x` | (area_slug, iso_week, bed_min, bed_max, tier) | **v5** Area stock/flow/reprice/DOM at bed-range × tier |
+| `dash_area_cohorts_x` | (area_slug, iso_week, cohort, bed_min, bed_max, tier) | **v5** Area added/removed cohort profiles at bed-range × tier |
+| `dash_area_movement_leaderboard` | view (area_slug, iso_week, suburb_id) | **v5** Per-suburb gone/new/net/stock + `movement_rank` |
 | `dash_area_coverage` | (area_slug, iso_week) | Capable suburbs vs captured, coverage_pct |
 | `dash_city_weekly` | (iso_week) | Sydney-wide medians + coverage vs 226 (for vs-Sydney compares) |
 
@@ -226,8 +233,13 @@ today's raw data (1–6 only).
 **dash_suburb_weekly** — `suburb_id bigint`, `suburb_slug text`, `suburb text`,
 `area_slug text`, `iso_week date`, `avg_rent numeric`, `p50_bars int` (median from
 g1 histogram), `demand_ratio numeric`, `total_listings int` (g2 carry-forward),
-`live_listings int` (distinct live listings that week), `rank_in_area int`
-(1 = most supply), `wow_avg_rent numeric`, `mom_avg_rent numeric` (−28d),
+`live_listings int` (distinct live listings that week),
+`rank_in_area int` (**LEGACY** — rank by `total_listings` DESC within area-week;
+1 = most supply),
+`movement_rank int` (**v5** — `dense_rank` by `gone_count` DESC among suburbs
+with a movement row **and** a weekly row that week; 1 = most disappeared;
+**NULL** when no movement row — hide / show at the movement basis week only),
+`wow_avg_rent numeric`, `mom_avg_rent numeric` (−28d),
 `qoq_avg_rent numeric` (−91d), `wow_demand_ratio numeric`,
 `wow_total_listings int`, `alltime_avg_rent_delta numeric`,
 `avg_rent_vol_8w numeric` (stddev of avg_rent over trailing 8 rows),
@@ -332,7 +344,28 @@ weeks_present_4<4), `computed_at`.
 
 **dash_area_movement** — `area_slug`, `iso_week`, `stock`, `new_count`,
 `gone_count`, `repriced_count`, `net_flow`, `turnover`, `dom_median_days`,
-`computed_at`.
+`computed_at`. Counts summed from suburbs; **v5** DOM recomputed from raw
+listings at area grain (not median-of-suburb-medians). Prefer
+`dash_area_movement_x` under bed/tier filters.
+
+**dash_area_movement_x** *(v5)* — `area_slug`, `iso_week`, `bed_min`, `bed_max`,
+`tier`, `stock`, `new_count`, `gone_count`, `repriced_count`, `reprice_up`,
+`reprice_down`, `carried_count` (`stock − new − repriced`), `turnover`,
+`dom_median`, `dom_p25`, `dom_p75`, `computed_at`. Counts summed from
+`dash_suburb_movement_x`; DOM recomputed from raw at area grain.
+`(1,6plus)/all` reconciles with `dash_area_movement`.
+
+**dash_area_cohorts_x** *(v5)* — `area_slug`, `iso_week`, `cohort`
+(`added`|`removed`), `bed_min`, `bed_max`, `tier`, `count`, `median_rent`,
+`p25`, `p75`, `dom_median`, `dom_p25`, `dom_p75` (removed only),
+`repriced_share`, `median_weeks_on_market`, `computed_at`. `count` equals the
+sum of member-suburb `dash_suburb_cohorts_x` counts; rent/DOM/shares from raw
+at area grain.
+
+**dash_area_movement_leaderboard** *(v5 view)* — `area_slug`, `iso_week`,
+`suburb_id`, `suburb_slug`, `suburb`, `gone_count`, `new_count`, `net_flow`,
+`stock`, `movement_rank`. Join of `dash_suburb_movement` × `dash_suburb_weekly`.
+Order by `movement_rank` for the movement leaderboard.
 
 **dash_area_coverage** — `area_slug`, `iso_week`, `capable_suburbs int`,
 `g1_captured int`, `g2_captured int`, `coverage_pct numeric`, `computed_at`.
@@ -376,7 +409,8 @@ Sections A–G per the approved `suburb_explorer_2026-07-01.html`.
 | D24 | Days on market | Unfiltered: `dash_suburb_movement.dom_median_days`. **Under filter (v4):** `movement_x.dom_p25/dom_median/dom_p75`; removed cohort: `cohorts_x` DOM stats |
 | E25 | Confidence + checks | `dash_suburb_coverage.confidence,sample_n,weeks_present_4,g1_capable` |
 | F26 | Time horizons (1M/2M/3M) | `mom_avg_rent` / `qoq_avg_rent` — **strict, see §0.1**; 2M not persisted (§6) |
-| G27 | Area & supply rank | `dash_suburb_weekly.rank_in_area` — **always suburb-wide; tag when a filter is on** |
+| G27 | Area & supply rank | `dash_suburb_weekly.rank_in_area` — **LEGACY supply rank**; always suburb-wide; tag when a filter is on |
+| G27b | Movement rank | `dash_suburb_weekly.movement_rank` — by total `gone_count`; **NULL when no movement row**; show at movement basis week |
 | **NEW** | Price by bed-range × tier | `dash_suburb_price_stats_x` — see §0.3 / §7 |
 | **NEW** | Movement panels ("what was added" / "what moved") | `dash_suburb_cohorts_x` split by `cohort` |
 
@@ -387,7 +421,7 @@ All examples for Strathfield (`suburb_id = 1`, `suburb_slug = 'strathfield'`).
 **Header strip / latest snapshot (A1–A3, C11–C12, E25):**
 ```sql
 select w.avg_rent, w.demand_ratio, w.implied_seekers, w.implied_seekers_stale_weeks,
-       w.total_listings, w.live_listings, w.rank_in_area,
+       w.total_listings, w.live_listings, w.rank_in_area, w.movement_rank,
        w.wow_avg_rent, w.delta_vs_prev_obs, w.prev_obs_gap_weeks,
        ps.p10, ps.p50, ps.p90, ps.dispersion_9010, ps.bills_incl_premium,
        cov.confidence, cov.sample_n, cov.weeks_present_4
@@ -517,10 +551,12 @@ The area view mirrors the suburb explorer at the `area_slug` level.
 | Rent trend + WoW/MoM/QoQ + volatility | `dash_area_weekly.median_avg_rent, wow_/mom_/qoq_median_avg_rent, delta_vs_prev_obs, median_avg_rent_vol_8w` |
 | Price percentiles / dispersion | `dash_area_price_stats` |
 | Demand / supply / seekers trend | `dash_area_weekly.mean_demand_ratio, total_implied_seekers, total_listings` |
-| Leaderboard (suburbs ranked) | `dash_area_leaderboard` (rank_in_area, avg_listing, demand, classification) |
+| Leaderboard (suburbs ranked by supply) | Legacy `dash_area_leaderboard` (`rank_in_area`) |
+| Movement leaderboard (by gone) | **v5** `dash_area_movement_leaderboard` (`movement_rank`, gone/new/net/stock) |
 | Listing mix by type | `dash_area_listing_mix` (+ per-suburb `dash_suburb_supply_by_type`) |
 | Price histogram (14 bands) | `dash_area_listing_histogram` |
-| Movement / turnover / DOM | `dash_area_movement` |
+| Movement / turnover / DOM | Unfiltered: `dash_area_movement`. **Under filter (v5):** `dash_area_movement_x` |
+| Cohort profiles under filter | **v5** `dash_area_cohorts_x` |
 | Supply percentile (g1 bars) | `dash_area_supply_percentile_weekly` |
 | Coverage badge (captured vs capable) | `dash_area_coverage.coverage_pct, g1_captured, capable_suburbs` |
 
@@ -532,7 +568,31 @@ select iso_week, suburb_count, median_avg_rent, mean_demand_ratio, total_listing
        median_avg_rent_vol_8w
 from dash_area_weekly where area_slug = 'inner-west' order by iso_week;
 
--- Area leaderboard latest
+-- Movement leaderboard (v5) — Rank 1 = most listings disappeared that week
+select suburb, gone_count, new_count, net_flow, stock, movement_rank
+from dash_area_movement_leaderboard
+where area_slug = 'inner-west'
+  and iso_week = (select max(iso_week) from dash_suburb_movement)
+order by movement_rank, suburb;
+
+-- Equivalent without the view:
+select w.suburb, m.gone_count, m.new_count, m.net_flow, m.stock, w.movement_rank
+from dash_suburb_movement m
+join dash_suburb_weekly w using (suburb_id, iso_week)
+where m.area_slug = 'inner-west'
+  and m.iso_week = (select max(iso_week) from dash_suburb_movement)
+order by w.movement_rank, w.suburb;
+
+-- Area movement under bed×tier filter (v5)
+select bed_min, bed_max, tier, stock, new_count, gone_count,
+       reprice_up, reprice_down, carried_count, turnover,
+       dom_p25, dom_median, dom_p75
+from dash_area_movement_x
+where area_slug = 'inner-west'
+  and iso_week = (select max(iso_week) from dash_area_movement_x)
+  and bed_min = '2' and bed_max = '4' and tier = 'all';
+
+-- Legacy supply leaderboard
 select suburb, rank_in_area, avg_listing, demand_ratio, classification, total_listings
 from dash_area_leaderboard
 where area_slug='inner-west' and snapshot_date=(select max(snapshot_date) from dash_area_leaderboard)
@@ -612,13 +672,16 @@ can change a supply chart but cannot change a price chart.
 
 - **Rebuild:** `.venv/bin/python scripts/run_g3.py` (see `docs/runbook.md`).
   Truncate-and-rebuild, idempotent — `--check` proves it by hashing twice.
-  `run_g3` prefers the Management API for `g3_rebuild_phase3()` when
-  `SUPABASE_ACCESS_TOKEN` is set (PostgREST's 30s client timeout is too tight
-  for the cross-grain rebuild).
-- **Audit:** `.venv/bin/python scripts/audit_g3.py` runs 43 invariants
+  `run_g3` prefers the Management API for `g3_rebuild_phase3()` and
+  `g3_data_fingerprint()` when `SUPABASE_ACCESS_TOKEN` is set (PostgREST's
+  gateway budget is too tight for the range-grain rebuild / fingerprint).
+- **Audit:** `.venv/bin/python scripts/audit_g3.py` runs **59** invariants
   (structure, strict deltas, demand model, type reconciliation, cohort
-  reconciliation, **cross-grain ROUND3A checks**) and exits non-zero if any is
-  violated. Run it after every rebuild; a green audit is the contract's
-  guarantee that §0.1, §0.2 and §0.3 hold in the data.
+  reconciliation, range-grain ROUND4A, **area/movement_rank ROUND5A**) and exits
+  non-zero if any is violated. Run it after every rebuild; a green audit is the
+  contract's guarantee that §0.1, §0.2 and §0.3 hold in the data. Prefers
+  Management API when the access token is set.
+- **Fingerprint:** `g3_data_fingerprint()` hashes **19** Phase-3 tables
+  (incl. `dash_area_movement_x`, `dash_area_cohorts_x`).
 - **Freshness:** every date-keyed `dash_*` table should report the current ISO
   week. Query in `docs/runbook.md`.
