@@ -33,3 +33,6 @@ E unchanged. REMOVE section F entirely.
 
 ## QA gate
 Existing screens harness at 1440 and 390 plus: filter switching on A/B/D, expander open states, the composition chart on a gap week, cohort panels on a thin suburb, no console errors. dev to main only after green; report with evidence.
+
+## AMENDMENT (2026-08-02, supersedes the filter spec above)
+Primary filter dimension is bedrooms (1-6 + all) from the _by_type tables, with ad tier (premium/basic) as a secondary facet. The seven property categories (whole property, studio, granny flat, etc.) have supply counts only - no per-listing prices - so they may appear only on supply elements fed by g2_counts, never on price or cohort charts. See contract v2 section 7.
