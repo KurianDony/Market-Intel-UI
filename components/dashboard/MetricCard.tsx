@@ -4,6 +4,7 @@ import { useId, useState, type ReactNode } from "react";
 import { INK_5, INK_20, INK_40, INK_60, INK_100 } from "@/lib/palette/v2";
 import { formatWeekLong, formatWeekTick } from "@/lib/dash/iso-week";
 import { Sparkline, SparklineLegend, type SparkPoint } from "./charts/Sparkline";
+import { WeeklyLineChart } from "./charts/WeeklyLineChart";
 
 export type MetricTable = {
   cols: string[];
@@ -37,6 +38,11 @@ export type MetricCardProps = {
   seriesFormat?: SeriesFormat;
   /** When false, series only appears inside the expander (Round 2 A1). Default true. */
   showSpark?: boolean;
+  /**
+   * Expander chart style. Round 3B demand cards use `"line"`;
+   * default `"bars"` keeps the existing spark strip in the expander.
+   */
+  seriesChart?: "bars" | "line";
   table?: MetricTable;
   /** Extra content rendered inside the open expander. */
   expanderExtra?: ReactNode;
@@ -64,6 +70,7 @@ export function MetricCard({
   series,
   seriesFormat,
   showSpark = true,
+  seriesChart = "bars",
   table,
   expanderExtra,
   deltas,
@@ -121,7 +128,7 @@ export function MetricCard({
         </p>
       )}
 
-      {showSpark && series && series.length > 0 && (
+      {showSpark && series && series.length > 0 && seriesChart === "bars" && (
         <>
           <Sparkline points={series} />
           <SparklineLegend points={series} />
@@ -146,7 +153,26 @@ export function MetricCard({
             </span>
             {explain}
           </p>
-          {recent.length > 0 && (
+          {recent.length > 0 && seriesChart === "line" && (
+            <div data-series-line="">
+              <p className="mb-1 uppercase tracking-[0.1em]" style={{ color: INK_60 }}>
+                Trend (line)
+              </p>
+              <WeeklyLineChart
+                axis={recent.map((p) => p.week)}
+                series={[
+                  {
+                    key: "v",
+                    name: label,
+                    values: recent.map((p) => p.value),
+                    emphasis: "primary",
+                  },
+                ]}
+                height={160}
+              />
+            </div>
+          )}
+          {recent.length > 0 && seriesChart === "bars" && (
             <div>
               <p className="mb-1 uppercase tracking-[0.1em]" style={{ color: INK_60 }}>
                 By week (last {recent.length})

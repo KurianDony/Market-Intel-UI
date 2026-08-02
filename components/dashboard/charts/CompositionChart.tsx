@@ -6,7 +6,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   ReferenceArea,
   ReferenceLine,
   Tooltip,
@@ -15,22 +14,32 @@ import {
 } from "recharts";
 import { INK_10, INK_40, INK_60, INK_80, INK_100 } from "@/lib/palette/v2";
 import { formatWeekLong, formatWeekTick } from "@/lib/dash/iso-week";
-import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
+import { CHART_AXIS, CHART_GRID, CHART_TOOLTIP } from "./chart-theme";
 import { ChartViewport, CHART_HEIGHT_TALL } from "./ChartViewport";
 import { EmptyChart } from "./WeeklyLineChart";
 
 export type CompositionPoint = {
   week: string;
-  /** Carried old stock = stock − new − repriced (floored at 0). */
+  /** Carried old stock — prefer movement.carried_count (v3). */
   carried: number | null;
   repriced: number | null;
   newCount: number | null;
   gone: number | null;
 };
 
+const SEG_STROKE = "#ffffff";
+
+const LEGEND = [
+  { key: "carried", label: "Carried", fill: "#333333" },
+  { key: "repriced", label: "Repriced", fill: "#666666" },
+  { key: "newCount", label: "New", fill: INK_80 },
+  { key: "gone", label: "Disappeared", fill: "#1a1a1a" },
+] as const;
+
 /**
  * Weekly composition: carried (bottom) + repriced + new above axis;
- * disappeared as a negative bar below.
+ * disappeared as a negative bar below. White outline separators between
+ * stacked segments; legend in its own lighter box (Round 3B).
  */
 export function CompositionChart({
   points,
@@ -59,6 +68,26 @@ export function CompositionChart({
 
   return (
     <div>
+      <div
+        className="mb-3 flex flex-wrap gap-3 border px-3 py-2"
+        style={{ borderColor: INK_40, background: "#141414" }}
+        data-composition-legend=""
+      >
+        {LEGEND.map((item) => (
+          <span
+            key={item.key}
+            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em]"
+            style={{ color: INK_80 }}
+          >
+            <span
+              className="inline-block h-2.5 w-2.5 border"
+              style={{ background: item.fill, borderColor: SEG_STROKE }}
+            />
+            {item.label}
+          </span>
+        ))}
+      </div>
+
       <ChartViewport height={height}>
         <BarChart
           data={data}
@@ -87,12 +116,13 @@ export function CompositionChart({
             }}
             formatter={(v: number, name: string) => [Math.abs(v), name]}
           />
-          <Legend {...CHART_LEGEND} />
           <Bar
             dataKey="carried"
             name="Carried"
             stackId="comp"
             fill="#333333"
+            stroke={SEG_STROKE}
+            strokeWidth={1}
             isAnimationActive={false}
             onClick={(d) => setSelected((d as { week?: string }).week ?? null)}
           >
@@ -100,6 +130,7 @@ export function CompositionChart({
               <Cell
                 key={`c-${d.week}`}
                 fill={selected === d.week ? INK_100 : "#333333"}
+                stroke={SEG_STROKE}
                 cursor="pointer"
               />
             ))}
@@ -109,6 +140,8 @@ export function CompositionChart({
             name="Repriced"
             stackId="comp"
             fill="#666666"
+            stroke={SEG_STROKE}
+            strokeWidth={1}
             isAnimationActive={false}
             onClick={(d) => setSelected((d as { week?: string }).week ?? null)}
           >
@@ -116,6 +149,7 @@ export function CompositionChart({
               <Cell
                 key={`r-${d.week}`}
                 fill={selected === d.week ? INK_80 : "#666666"}
+                stroke={SEG_STROKE}
                 cursor="pointer"
               />
             ))}
@@ -125,6 +159,8 @@ export function CompositionChart({
             name="New"
             stackId="comp"
             fill={INK_100}
+            stroke={SEG_STROKE}
+            strokeWidth={1}
             isAnimationActive={false}
             onClick={(d) => setSelected((d as { week?: string }).week ?? null)}
           >
@@ -132,6 +168,7 @@ export function CompositionChart({
               <Cell
                 key={`n-${d.week}`}
                 fill={selected === d.week ? INK_100 : INK_80}
+                stroke={SEG_STROKE}
                 cursor="pointer"
               />
             ))}
@@ -141,7 +178,8 @@ export function CompositionChart({
             name="Disappeared"
             stackId="comp"
             fill="#1a1a1a"
-            stroke={INK_40}
+            stroke={SEG_STROKE}
+            strokeWidth={1}
             isAnimationActive={false}
             onClick={(d) => setSelected((d as { week?: string }).week ?? null)}
           >
@@ -149,6 +187,7 @@ export function CompositionChart({
               <Cell
                 key={`g-${d.week}`}
                 fill={selected === d.week ? "#444444" : "#1a1a1a"}
+                stroke={SEG_STROKE}
                 cursor="pointer"
               />
             ))}

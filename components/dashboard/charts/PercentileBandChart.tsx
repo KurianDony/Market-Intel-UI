@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { INK_10, INK_20, INK_40, INK_100 } from "@/lib/palette/v2";
+import { INK_10, INK_20, INK_100 } from "@/lib/palette/v2";
 import { formatWeekLong, formatWeekTick } from "@/lib/dash/iso-week";
 import { CHART_AXIS, CHART_GRID, CHART_LEGEND, CHART_TOOLTIP } from "./chart-theme";
 import { ChartViewport, CHART_HEIGHT_TALL } from "./ChartViewport";
@@ -35,9 +35,12 @@ const BANDS = [
   { key: "b100", name: "p80–p100≈p90", fill: "#cccccc" },
 ] as const;
 
+/** Thin white stroke between stacked band segments (Round 3B). */
+const BAND_STROKE = "#ffffff";
+
 /**
  * Stacked band chart — gradient greys for percentile slices over time.
- * Hover dims non-hovered bands; if hover feels janky we can drop interaction.
+ * Hover dims non-hovered bands; white separators mark splits.
  */
 export function PercentileBandChart({
   weeks,
@@ -125,7 +128,8 @@ export function PercentileBandChart({
               name={b.name}
               stackId="bands"
               fill={b.fill}
-              stroke={dimmed ? INK_20 : INK_40}
+              stroke={dimmed ? INK_20 : BAND_STROKE}
+              strokeWidth={1}
               fillOpacity={dimmed ? 0.25 : 1}
               connectNulls={false}
               isAnimationActive={false}

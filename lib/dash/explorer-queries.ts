@@ -8,13 +8,14 @@ import type {
   DashAreaWeekly,
   DashCityWeekly,
   DashSuburbBandLiquidity,
-  DashSuburbCohort,
+  DashSuburbCohortX,
   DashSuburbCoverage,
   DashSuburbMovement,
   DashSuburbPriceStats,
-  DashSuburbPriceStatsByType,
+  DashSuburbPriceStatsX,
   DashSuburbRankPeer,
   DashSuburbSupplyByType,
+  DashSuburbSupplyX,
   DashSuburbWeekly,
   SuburbIdentity,
 } from "@/lib/types/dash-phase3";
@@ -53,9 +54,12 @@ export type SuburbExplorerData = {
   selectedWeek: string;
   weekly: DashSuburbWeekly[];
   priceStats: DashSuburbPriceStats[];
-  priceStatsByType: DashSuburbPriceStatsByType[];
+  /** v3 bed × tier — prefer for combined filters. */
+  priceStatsX: DashSuburbPriceStatsX[];
+  /** listing_category rows only (B8); bed/tier supply lives on supplyX. */
   supplyByType: DashSuburbSupplyByType[];
-  cohorts: DashSuburbCohort[];
+  supplyX: DashSuburbSupplyX[];
+  cohortsX: DashSuburbCohortX[];
   movement: DashSuburbMovement[];
   coverage: DashSuburbCoverage[];
   bandLiquidity: DashSuburbBandLiquidity[];
@@ -157,9 +161,10 @@ export async function fetchSuburbExplorerData(
   const [
     weeklyRes,
     priceRes,
-    priceByTypeRes,
+    priceXRes,
     supplyByTypeRes,
-    cohortRes,
+    supplyXRes,
+    cohortXRes,
     moveRes,
     covRes,
     bandRes,
@@ -180,7 +185,7 @@ export async function fetchSuburbExplorerData(
       .eq("suburb_id", identity.id)
       .order("iso_week", { ascending: true }),
     supabase
-      .from("dash_suburb_price_stats_by_type")
+      .from("dash_suburb_price_stats_x")
       .select("*")
       .eq("suburb_id", identity.id)
       .order("iso_week", { ascending: true }),
@@ -188,9 +193,15 @@ export async function fetchSuburbExplorerData(
       .from("dash_suburb_supply_by_type")
       .select("*")
       .eq("suburb_id", identity.id)
+      .eq("type_dim", "listing_category")
       .order("iso_week", { ascending: true }),
     supabase
-      .from("dash_suburb_cohorts")
+      .from("dash_suburb_supply_x")
+      .select("*")
+      .eq("suburb_id", identity.id)
+      .order("iso_week", { ascending: true }),
+    supabase
+      .from("dash_suburb_cohorts_x")
       .select("*")
       .eq("suburb_id", identity.id)
       .order("iso_week", { ascending: true }),
@@ -236,9 +247,10 @@ export async function fetchSuburbExplorerData(
   for (const res of [
     weeklyRes,
     priceRes,
-    priceByTypeRes,
+    priceXRes,
     supplyByTypeRes,
-    cohortRes,
+    supplyXRes,
+    cohortXRes,
     moveRes,
     covRes,
     bandRes,
@@ -294,9 +306,10 @@ export async function fetchSuburbExplorerData(
     selectedWeek,
     weekly,
     priceStats,
-    priceStatsByType: (priceByTypeRes.data ?? []) as DashSuburbPriceStatsByType[],
+    priceStatsX: (priceXRes.data ?? []) as DashSuburbPriceStatsX[],
     supplyByType: (supplyByTypeRes.data ?? []) as DashSuburbSupplyByType[],
-    cohorts: (cohortRes.data ?? []) as DashSuburbCohort[],
+    supplyX: (supplyXRes.data ?? []) as DashSuburbSupplyX[],
+    cohortsX: (cohortXRes.data ?? []) as DashSuburbCohortX[],
     movement,
     coverage,
     bandLiquidity: (bandRes.data ?? []) as DashSuburbBandLiquidity[],

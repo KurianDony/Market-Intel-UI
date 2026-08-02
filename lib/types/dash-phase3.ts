@@ -63,6 +63,23 @@ export type DashSuburbPriceStatsByType = {
   iqr_7525: number | null;
 };
 
+/** v3 — bed × tier cross grain for combined filters. */
+export type DashSuburbPriceStatsX = {
+  suburb_id: number;
+  suburb_slug: string;
+  area_slug: string;
+  iso_week: string;
+  bed_bucket: string;
+  tier: string;
+  sample_n: number;
+  p10: number | null;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p90: number | null;
+  mean_rent: number | null;
+};
+
 export type DashSuburbSupplyByType = {
   suburb_id: number;
   suburb_slug: string;
@@ -77,6 +94,19 @@ export type DashSuburbSupplyByType = {
   stale_weeks: number | null;
 };
 
+/** v3 — bed × tier live/new/gone. */
+export type DashSuburbSupplyX = {
+  suburb_id: number;
+  suburb_slug: string;
+  area_slug: string;
+  iso_week: string;
+  bed_bucket: string;
+  tier: string;
+  live_count: number;
+  new_count: number;
+  gone_count: number;
+};
+
 export type DashSuburbCohort = {
   suburb_id: number;
   suburb_slug: string;
@@ -85,6 +115,24 @@ export type DashSuburbCohort = {
   cohort: "added" | "removed";
   type_dim: string;
   type_key: string;
+  count: number;
+  median_rent: number | null;
+  p25: number | null;
+  p75: number | null;
+  dom_median: number | null;
+  repriced_share: number | null;
+  median_weeks_on_market: number | null;
+};
+
+/** v3 — same metrics as cohorts, keyed by bed_bucket × tier. */
+export type DashSuburbCohortX = {
+  suburb_id: number;
+  suburb_slug: string;
+  area_slug: string;
+  iso_week: string;
+  cohort: "added" | "removed";
+  bed_bucket: string;
+  tier: string;
   count: number;
   median_rent: number | null;
   p25: number | null;
@@ -135,6 +183,8 @@ export type DashSuburbMovement = {
   net_flow: number;
   reprice_up: number;
   reprice_down: number;
+  /** v3 — stock − new_count − repriced_count (precomputed). */
+  carried_count: number | null;
   new_median_rent: number | null;
   gone_median_rent: number | null;
   turnover: number | null;
